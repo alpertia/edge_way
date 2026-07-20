@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>edgeWAY Pro2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<style>
+  :root { --bg:#0b1526; --panel:#111f36; --line:#1e3252; --txt:#e8eef7; --mut:#8fa3bd; --acc:#3b82f6; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,'Segoe UI',sans-serif; background:var(--bg); color:var(--txt); min-height:100vh; }
+  header { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); }
+  header .logo { font-size:20px; font-weight:800; }
+  header .logo b { color:var(--acc); }
+  header .pill { font-size:12px; font-weight:700; color:var(--acc); border:1.5px solid var(--acc); border-radius:8px; padding:1px 8px; }
+  header .stat { margin-left:auto; font-size:13px; color:var(--mut); }
+  main { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:14px 18px; }
+  @media (max-width:800px){ main { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .panel h2 { font-size:13px; letter-spacing:.6px; color:var(--mut); margin-bottom:10px; text-transform:uppercase; }
+  .list button { display:block; width:100%; text-align:left; background:none; border:1px solid transparent; color:var(--txt); padding:7px 10px; border-radius:7px; font-size:14px; cursor:pointer; }
+  .list button:hover { border-color:var(--line); }
+  .list button.on { background:#16325c; border-color:var(--acc); }
+  video { width:100%; border-radius:10px; background:#000; aspect-ratio:16/9; }
+  .bar { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
+  .bar button { background:var(--panel); border:1px solid var(--line); color:var(--txt); padding:6px 12px; border-radius:7px; font-size:13px; cursor:pointer; }
+  .bar button.on { border-color:var(--acc); color:var(--acc); font-weight:700; }
+  #segs { display:flex; gap:6px; flex-wrap:wrap; max-height:160px; overflow-y:auto; }
+  #segs button { font-size:12px; padding:4px 8px; }
+  #segs .done { opacity:.55; }
+  .empty { color:var(--mut); font-size:13px; padding:8px 0; }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">edge<b>WAY</b></span><span class="pill">Pro2</span>
+  <span class="stat" id="stat">bağlanıyor…</span>
+</header>
+<main>
+  <div class="panel">
+    <h2>Kameralar</h2>
+    <div class="list" id="cams"><div class="empty">yükleniyor…</div></div>
+  </div>
+  <div>
+    <video id="v" controls muted playsinline></video>
+    <div class="bar" id="mode">
+      <button data-m="live" class="on">Canlı</button>
+      <button data-m="rec">Kayıtlar</button>
+    </div>
+    <div class="panel" id="recpanel" style="display:none">
+      <h2>Günler</h2><div class="bar" id="days"></div>
+      <h2>Segmentler</h2><div id="segs"><div class="empty">gün seçin</div></div>
+    </div>
+  </div>
+</main>
+<script>
+const TOKEN = localStorage.getItem('edgeway_token') || '';
+const H = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+let cam = null, mode = 'live', hls = null;
+const $ = id => document.getElementById(id);
+
+async function j(url) { const r = await fetch(url, { headers: H }); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+function play(url, isHls) {
+  const v = $('v');
+  if (hls) { hls.destroy(); hls = null; }
+  if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v); }
+  else { v.src = url; }
+  v.play().catch(() => {});
+}
+
+async function loadCams() {
+  const d = await j('/api/cameras');
+  const el = $('cams'); el.innerHTML = '';
+  const names = Object.keys(d.cameras);
+  if (!names.length) { el.innerHTML = '<div class="empty">kamera tanımlı değil</div>'; return; }
+  names.forEach(n => {
+    const b = document.createElement('button');
+    b.textContent = n; b.onclick = () => selectCam(n, d.cameras[n]);
+    el.appendChild(b);
+  });
+  selectCam(names[0], d.cameras[names[0]]);
+}
+
+function selectCam(n, info) {
+  cam = { name: n, ...info };
+  [...$('cams').children].forEach(b => b.classList.toggle('on', b.textContent === n));
+  refresh();
+}
+
+async function refresh() {
+  if (!cam) return;
+  if (mode === 'live') { $('recpanel').style.display = 'none'; play(cam.live_hls, true); return; }
+  $('recpanel').style.display = '';
+  const d = await j('/api/recordings/' + cam.name);
+  const days = $('days'); days.innerHTML = '';
+  if (!d.days.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; $('segs').innerHTML = ''; return; }
+  d.days.forEach(day => {
+    const b = document.createElement('button');
+    b.textContent = day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6);
+    b.onclick = () => loadDay(day, b);
+    days.appendChild(b);
+  });
+  loadDay(d.days[d.days.length-1], days.lastChild);
+}
+
+async function loadDay(day, btn) {
+  [...$('days').children].forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  const d = await j('/api/recordings/' + cam.name + '?date=' + day);
+  const el = $('segs'); el.innerHTML = '';
+  if (!d.segments.length) { el.innerHTML = '<div class="empty">segment yok</div>'; return; }
+  d.segments.forEach(s => {
+    const b = document.createElement('button');
+    b.textContent = s.file.replace('.mp4','').replace(/(\d\d)(\d\d)(\d\d)/,'$1:$2:$3');
+    if (s.uploaded) b.classList.add('done');
+    b.onclick = () => play(s.url + (TOKEN ? '' : ''), false);
+    el.appendChild(b);
+  });
+}
+
+$('mode').onclick = e => {
+  if (e.target.dataset.m) {
+    mode = e.target.dataset.m;
+    [...$('mode').children].forEach(b => b.classList.toggle('on', b === e.target));
+    refresh();
+  }
+};
+
+(async () => {
+  try {
+    const h = await j('/health');
+    $('stat').textContent = `${h.device} · ${h.temp_c ?? '–'}°C · disk %${h.disk_used_pct ?? '–'}`;
+    await loadCams();
+  } catch (e) { $('stat').textContent = 'API erişilemedi (' + e.message + ')'; }
+})();
+</script>
+</body>
+</html>

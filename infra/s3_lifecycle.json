@@ -1,0 +1,14 @@
+{
+  "Rules": [
+    {
+      "ID": "edgeway-tiering",
+      "Status": "Enabled",
+      "Filter": {},
+      "Transitions": [
+        { "Days": 90, "StorageClass": "GLACIER_IR" },
+        { "Days": 180, "StorageClass": "DEEP_ARCHIVE" }
+      ],
+      "Expiration": { "Days": 730 }
+    }
+  ]
+}

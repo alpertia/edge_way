@@ -1,0 +1,8 @@
+[Unit]
+Description=EdgeWay S3 yukleyici (tek tur)
+[Service]
+Type=oneshot
+User=edgeway
+EnvironmentFile=/etc/edgeway/edgeway.env
+WorkingDirectory=/opt/edgeway
+ExecStart=/opt/edgeway/.venv/bin/python -m edgeway.uploader.s3sync

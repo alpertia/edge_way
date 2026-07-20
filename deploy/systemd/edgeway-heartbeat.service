@@ -1,0 +1,12 @@
+[Unit]
+Description=EdgeWay nabiz ajani
+After=network-online.target
+[Service]
+User=edgeway
+EnvironmentFile=/etc/edgeway/edgeway.env
+WorkingDirectory=/opt/edgeway
+ExecStart=/opt/edgeway/.venv/bin/python -m edgeway.heartbeat.agent
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

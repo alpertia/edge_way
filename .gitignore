@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+edgeway.env
+*.up
+recordings/
+dev.env
+mediamtx
+mediamtx.tar.gz
+*.img
+*.tar.gz
+mediamtx
+mediamtx.tar.gz
+raspios.img
+*.img
+*.tar.gz
