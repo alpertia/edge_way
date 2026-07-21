@@ -4,6 +4,9 @@ Basarisiz push loglanir ama dongu olmez — cihaz bagimsiz calisir.
 """
 from __future__ import annotations
 
+from __future__ import annotations
+from __future__ import annotations
+from __future__ import annotations
 import json
 import os
 import shutil

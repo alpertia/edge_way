@@ -22,7 +22,8 @@ def ffmpeg_cmd(cam: str, url: str) -> list[str]:
     return [
         "ffmpeg", "-nostdin", "-loglevel", "warning",
         "-rtsp_transport", "tcp", "-i", url,
-        "-c", "copy", "-map", "0",
+        "-c", "copy", "-map", "0:v:0", "-an",
+        *(config.FFMPEG_EXTRA.split() if config.FFMPEG_EXTRA else []),
         "-f", "segment", "-segment_time", str(config.SEGMENT_SECONDS),
         "-segment_atclocktime", "1", "-reset_timestamps", "1",
         "-strftime", "1", str(out),

@@ -8,9 +8,11 @@ ENV_FILE = Path(os.environ.get("EDGEWAY_ENV", "/etc/edgeway/edgeway.env"))
 
 
 def _load_env_file() -> None:
-    if not ENV_FILE.exists():
+    try:
+        _text = ENV_FILE.read_text()
+    except OSError:
         return
-    for line in ENV_FILE.read_text().splitlines():
+    for line in _text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -73,3 +75,7 @@ HEARTBEAT_SECONDS = int(env("EDGEWAY_HEARTBEAT_SECONDS", "15"))
 TEMP_WARN = float(env("EDGEWAY_TEMP_WARN", "70"))
 TEMP_CRIT = float(env("EDGEWAY_TEMP_CRIT", "78"))
 TEMP_SHUTDOWN = float(env("EDGEWAY_TEMP_SHUTDOWN", "82"))
+
+FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")
+
+FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")

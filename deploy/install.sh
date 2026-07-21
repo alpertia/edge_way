@@ -7,7 +7,8 @@ cd /opt/edgeway
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -q -r requirements.txt
 [ -f /etc/edgeway/edgeway.env ] || sudo cp .env.example /etc/edgeway/edgeway.env
-sudo chmod 600 /etc/edgeway/edgeway.env
+sudo chown root:edgeway /etc/edgeway/edgeway.env
+sudo chmod 640 /etc/edgeway/edgeway.env
 sudo chown -R edgeway:edgeway /opt/edgeway /var/lib/edgeway
 sudo cp deploy/systemd/*.service deploy/systemd/*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
