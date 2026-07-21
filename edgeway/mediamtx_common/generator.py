@@ -22,7 +22,6 @@ webrtc: {webrtc}
 
 PATH_TMPL = """  {name}:
     source: {source}
-    sourceProtocol: tcp
     sourceOnDemand: {on_demand}
 """
 
