@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>edgeWAY Kurulum</title>
+<style>
+  :root { --bg:#0b1526; --panel:#111f36; --line:#1e3252; --txt:#e8eef7; --mut:#8fa3bd; --acc:#3b82f6; --ok:#22c55e; --err:#ef4444; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,'Segoe UI',sans-serif; background:var(--bg); color:var(--txt); min-height:100vh; display:flex; justify-content:center; padding:20px 14px; }
+  .wrap { width:100%; max-width:480px; }
+  .logo { font-size:22px; font-weight:800; text-align:center; margin-bottom:4px; }
+  .logo b { color:var(--acc); }
+  .sub { text-align:center; color:var(--mut); font-size:13px; margin-bottom:18px; }
+  .steps { display:flex; gap:6px; margin-bottom:16px; }
+  .steps div { flex:1; height:4px; border-radius:2px; background:var(--line); }
+  .steps div.on { background:var(--acc); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  h2 { font-size:16px; margin-bottom:14px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:10px 0 4px; }
+  input, select { width:100%; background:#0d1830; border:1px solid var(--line); border-radius:8px; color:var(--txt); padding:9px 11px; font-size:14px; }
+  input:focus { outline:none; border-color:var(--acc); }
+  .row { display:flex; gap:10px; }
+  .row > div { flex:1; }
+  .btns { display:flex; gap:10px; margin-top:16px; }
+  button { flex:1; border:none; border-radius:8px; padding:11px; font-size:14px; font-weight:700; cursor:pointer; }
+  .primary { background:var(--acc); color:#fff; }
+  .ghost { background:none; border:1px solid var(--line); color:var(--txt); }
+  .msg { margin-top:10px; font-size:13px; border-radius:8px; padding:9px 11px; display:none; }
+  .msg.ok { display:block; background:#0d2b1a; color:var(--ok); }
+  .msg.err { display:block; background:#2b0d0d; color:var(--err); }
+  .chs { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .chs label.ch { display:flex; align-items:center; gap:6px; background:#0d1830; border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:13px; color:var(--txt); margin:0; cursor:pointer; }
+  .chs label.ch.on { border-color:var(--acc); }
+  .sum { font-size:14px; line-height:1.9; }
+  .sum b { color:var(--acc); }
+  .spin { display:none; text-align:center; color:var(--mut); font-size:13px; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">edge<b>WAY</b> Pro2</div>
+  <div class="sub">İlk kurulum sihirbazı</div>
+  <div class="steps"><div class="on"></div><div id="s2"></div><div id="s3"></div></div>
+
+  <div class="card" id="step1">
+    <h2>1 · Site bilgisi</h2>
+    <label>Site adı</label><input id="site" placeholder="ör. kadikoy-magaza">
+    <label>Cihaz adı</label><input id="device" placeholder="ör. edgeway-01">
+    <div class="row">
+      <div><label>Uyarı telefonu</label><input id="phone" placeholder="+90..."></div>
+      <div><label>Uyarı e-postası</label><input id="email" placeholder="ops@..."></div>
+    </div>
+    <div class="btns"><button class="primary" onclick="go(2)">Devam</button></div>
+  </div>
+
+  <div class="card" id="step2" style="display:none">
+    <h2>2 · DVR / Kameralar</h2>
+    <div class="row">
+      <div><label>DVR IP</label><input id="ip" placeholder="192.168.1.100"></div>
+      <div style="max-width:90px"><label>Port</label><input id="port" value="554"></div>
+    </div>
+    <div class="row">
+      <div><label>Kullanıcı</label><input id="user" value="admin"></div>
+      <div><label>Şifre</label><input id="pass" type="password"></div>
+    </div>
+    <div class="btns">
+      <button class="ghost" onclick="test()">Bağlantıyı test et</button>
+      <button class="ghost" onclick="discover()">Kameraları bul</button>
+    </div>
+    <div class="spin" id="spin">taranıyor…</div>
+    <div class="msg" id="m2"></div>
+    <div class="chs" id="chs"></div>
+    <div class="btns">
+      <button class="ghost" onclick="go(1)">Geri</button>
+      <button class="primary" onclick="go(3)">Devam</button>
+    </div>
+  </div>
+
+  <div class="card" id="step3" style="display:none">
+    <h2>3 · Özet</h2>
+    <div class="sum" id="sum"></div>
+    <label>Kayıt süresi (gün)</label><input id="ret" value="90">
+    <label>Disk tavanı (GB, 0 = otomatik)</label><input id="maxgb" value="0">
+    <div class="msg" id="m3"></div>
+    <div class="btns">
+      <button class="ghost" onclick="go(2)">Geri</button>
+      <button class="primary" id="applyBtn" onclick="apply()">Kur ve başlat</button>
+    </div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let picked = new Set();
+
+function dvr() { return { ip:$('ip').value.trim(), port:+$('port').value||554,
+  user:$('user').value.trim(), password:$('pass').value }; }
+
+function go(n) {
+  ['step1','step2','step3'].forEach((s,i)=>$(s).style.display = (i===n-1)?'':'none');
+  $('s2').classList.toggle('on', n>=2); $('s3').classList.toggle('on', n>=3);
+  if (n===3) $('sum').innerHTML =
+    `Site: <b>${$('site').value||'—'}</b> · Cihaz: <b>${$('device').value||'—'}</b><br>` +
+    `DVR: <b>${$('ip').value||'—'}</b> · Seçili kamera: <b>${picked.size}</b> (${[...picked].sort((a,b)=>a-b).map(c=>'ch'+c).join(', ')||'—'})`;
+}
+
+function msg(el, ok, text) { const m=$(el); m.className='msg '+(ok?'ok':'err'); m.textContent=text; }
+
+async function post(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.detail || r.status);
+  return d;
+}
+
+async function test() {
+  msg('m2', true, 'test ediliyor…');
+  try { const d = await post('/api/setup/test', {...dvr(), channel:1, stream:'sub'});
+    msg('m2', d.ok, d.ok ? `Bağlantı OK — ${d.codec} ${d.resolution}` : 'Hata: '+d.error);
+  } catch(e){ msg('m2', false, e.message); }
+}
+
+async function discover() {
+  $('spin').style.display='block'; $('chs').innerHTML=''; picked.clear();
+  try {
+    const d = await post('/api/setup/discover?max_channels=16', dvr());
+    $('spin').style.display='none';
+    if (!d.channels.length) { msg('m2', false, 'Kamera bulunamadı — bilgileri kontrol et'); return; }
+    msg('m2', true, d.channels.length + ' kamera bulundu, kaydedilecekleri seç:');
+    d.channels.forEach(c => {
+      const l = document.createElement('label'); l.className='ch on';
+      l.innerHTML = `<input type="checkbox" checked> ch${c.channel} · ${c.codec}`;
+      picked.add(c.channel);
+      l.querySelector('input').onchange = e => {
+        e.target.checked ? picked.add(c.channel) : picked.delete(c.channel);
+        l.classList.toggle('on', e.target.checked);
+      };
+      $('chs').appendChild(l);
+    });
+  } catch(e){ $('spin').style.display='none'; msg('m2', false, e.message); }
+}
+
+async function apply() {
+  $('applyBtn').disabled = true; msg('m3', true, 'uygulanıyor — cihaz servisleri yeniden başlıyor…');
+  try {
+    await post('/api/setup/apply', {
+      site_id:$('site').value.trim(), device_id:$('device').value.trim(),
+      dvr:dvr(), channels:[...picked],
+      retention_days:+$('ret').value||90, max_storage_gb:+$('maxgb').value||0,
+      alert_phone:$('phone').value.trim(), alert_email:$('email').value.trim(),
+    });
+    msg('m3', true, 'Kurulum tamam ✓ — birkaç saniye içinde ana sayfaya yönlendirileceksin');
+    setTimeout(()=>location.href='/', 6000);
+  } catch(e){ $('applyBtn').disabled=false; msg('m3', false, e.message); }
+}
+</script>
+</body>
+</html>

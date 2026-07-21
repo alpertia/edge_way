@@ -11,6 +11,9 @@ sudo chown root:edgeway /etc/edgeway/edgeway.env
 sudo chmod 640 /etc/edgeway/edgeway.env
 sudo chown -R edgeway:edgeway /opt/edgeway /var/lib/edgeway
 sudo cp deploy/systemd/*.service deploy/systemd/*.timer /etc/systemd/system/
+sudo install -o root -g root -m 755 deploy/edgeway-apply-env /usr/local/sbin/edgeway-apply-env
+echo "edgeway ALL=(root) NOPASSWD: /usr/local/sbin/edgeway-apply-env" | sudo tee /etc/sudoers.d/edgeway >/dev/null
+sudo chmod 440 /etc/sudoers.d/edgeway
 sudo systemctl daemon-reload
 sudo systemctl enable --now edgeway-api edgeway-recorder edgeway-heartbeat edgeway-uploader.timer
 echo "kurulum tamam — /etc/edgeway/edgeway.env dosyasini doldurmayi unutma"

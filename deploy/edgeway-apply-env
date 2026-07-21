@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Tek amacli root helper: sihirbazin urettigi env'i yerine koyar, servisleri tazeler.
+# sudoers.d/edgeway yalnizca bu komuta izin verir.
+set -euo pipefail
+SRC="${1:?kullanim: edgeway-apply-env <tmpfile>}"
+grep -q '^EDGEWAY_CAMERAS=' "$SRC" || { echo "gecersiz env"; exit 2; }
+install -o root -g edgeway -m 640 "$SRC" /etc/edgeway/edgeway.env
+rm -f "$SRC"
+systemctl restart edgeway-api edgeway-recorder edgeway-heartbeat

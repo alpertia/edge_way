@@ -21,7 +21,7 @@
   .list button { display:block; width:100%; text-align:left; background:none; border:1px solid transparent; color:var(--txt); padding:7px 10px; border-radius:7px; font-size:14px; cursor:pointer; }
   .list button:hover { border-color:var(--line); }
   .list button.on { background:#16325c; border-color:var(--acc); }
-  video { width:100%; border-radius:10px; background:#000; aspect-ratio:16/9; }
+  video { width:100%; border-radius:10px; background:#000; aspect-ratio:16/9; object-fit:fill; }
   .bar { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
   .bar button { background:var(--panel); border:1px solid var(--line); color:var(--txt); padding:6px 12px; border-radius:7px; font-size:13px; cursor:pointer; }
   .bar button.on { border-color:var(--acc); color:var(--acc); font-weight:700; }
@@ -63,8 +63,11 @@ async function j(url) { const r = await fetch(url, { headers: H }); if (!r.ok) t
 
 function play(url, isHls) {
   const v = $('v');
+  $('stat').textContent = $('stat').textContent.split(' · hata')[0];
+  v.onerror = () => { $('stat').textContent += ' · hata: video kod ' + (v.error ? v.error.code : '?'); };
   if (hls) { hls.destroy(); hls = null; }
-  if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v); }
+  if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { $('stat').textContent += ' · canli hata: ' + d.type; hls.destroy(); hls = null; } }); }
   else { v.src = url; }
   v.play().catch(() => {});
 }
@@ -90,7 +93,7 @@ function selectCam(n, info) {
 
 async function refresh() {
   if (!cam) return;
-  if (mode === 'live') { $('recpanel').style.display = 'none'; play(cam.live_hls, true); return; }
+  if (mode === 'live') { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
   $('recpanel').style.display = '';
   const d = await j('/api/recordings/' + cam.name);
   const days = $('days'); days.innerHTML = '';
@@ -110,7 +113,10 @@ async function loadDay(day, btn) {
   const d = await j('/api/recordings/' + cam.name + '?date=' + day);
   const el = $('segs'); el.innerHTML = '';
   if (!d.segments.length) { el.innerHTML = '<div class="empty">segment yok</div>'; return; }
+  let lastHour = null;
   d.segments.forEach(s => {
+    const hour = s.file.slice(0,2);
+    if (hour !== lastHour) { lastHour = hour; const h = document.createElement('div'); h.style.cssText='width:100%;font-size:11px;color:var(--mut);margin:6px 0 2px'; h.textContent = hour + ':00'; el.appendChild(h); }
     const b = document.createElement('button');
     b.textContent = s.file.replace('.mp4','').replace(/(\d\d)(\d\d)(\d\d)/,'$1:$2:$3');
     if (s.uploaded) b.classList.add('done');

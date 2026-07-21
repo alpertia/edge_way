@@ -76,8 +76,14 @@ TEMP_WARN = float(env("EDGEWAY_TEMP_WARN", "70"))
 TEMP_CRIT = float(env("EDGEWAY_TEMP_CRIT", "78"))
 TEMP_SHUTDOWN = float(env("EDGEWAY_TEMP_SHUTDOWN", "82"))
 
-FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")
-
-FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")
-
 MAX_STORAGE_GB = float(env("EDGEWAY_MAX_STORAGE_GB", "0"))  # 0 = kapali
+
+def live_paths() -> dict[str, str]:
+    out = {}
+    for part in env("EDGEWAY_LIVE_PATHS", "").split(","):
+        if "=" in part:
+            k, v = part.split("=", 1)
+            out[k.strip()] = v.strip()
+    return out
+
+FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")

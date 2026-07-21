@@ -14,7 +14,10 @@ from fastapi.staticfiles import StaticFiles
 
 from edgeway import config
 
-app = FastAPI(title="EdgeWay Pro2", version="0.1.0")
+app = FastAPI(title="EdgeWay Pro2", version="0.2.0")
+
+from edgeway.provision.routes import router as setup_router  # noqa: E402
+app.include_router(setup_router)
 
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
@@ -46,7 +49,7 @@ def api_cameras() -> dict:
     cams = {}
     for name in config.cameras():
         cams[name] = {
-            "live_hls": f"{config.MEDIAMTX_HLS}/{name}/index.m3u8",
+            "live_path": config.live_paths().get(name, name),
             "recordings": f"/api/recordings/{name}",
         }
     return {"cameras": cams}
