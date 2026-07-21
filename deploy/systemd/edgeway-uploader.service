@@ -2,6 +2,7 @@
 Description=EdgeWay S3 yukleyici (tek tur)
 [Service]
 Type=oneshot
+TimeoutStartSec=2h
 User=edgeway
 EnvironmentFile=/etc/edgeway/edgeway.env
 WorkingDirectory=/opt/edgeway

@@ -55,7 +55,7 @@ def run_once() -> int:
             break  # baglanti sorunuysa listeyi ogutme; sonraki turda dene
     if ok or fail:
         print(f"[uploader] yuklendi={ok} hata={fail}", file=sys.stderr)
-    return 0
+    return 0 if fail == 0 else 1
 
 
 if __name__ == "__main__":

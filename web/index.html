@@ -42,14 +42,27 @@
     <div class="list" id="cams"><div class="empty">yükleniyor…</div></div>
   </div>
   <div>
-    <video id="v" controls muted playsinline></video>
+    <div style="position:relative">
+      <video id="v" controls muted playsinline></video>
+      <div id="liveBadge" style="display:none;position:absolute;top:10px;left:10px;background:rgba(220,38,38,.92);color:#fff;font-size:12px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:999px">● CANLI</div>
+    </div>
+    <div class="bar" id="ctrls" style="display:none;align-items:center">
+      <button id="btnPlay" style="flex:0 0 44px">⏸</button>
+      <button id="btnBack" style="flex:0 0 56px">−1dk</button>
+      <button id="btnFwd" style="flex:0 0 56px">+1dk</button>
+      <span id="ts" style="font-size:13px;color:var(--mut);min-width:70px;text-align:center">--:--:--</span>
+      <div id="tl" style="flex:1;position:relative;height:30px;background:#0d1830;border:1px solid var(--line);border-radius:7px;cursor:pointer;overflow:hidden">
+        <div id="tlCur" style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:0"></div>
+      </div>
+    </div>
     <div class="bar" id="mode">
       <button data-m="live" class="on">Canlı</button>
       <button data-m="rec">Kayıtlar</button>
+      <button data-m="cloud">Bulut</button>
     </div>
     <div class="panel" id="recpanel" style="display:none">
+      <div id="storinfo" style="font-size:12px;color:var(--mut);margin-bottom:8px"></div>
       <h2>Günler</h2><div class="bar" id="days"></div>
-      <h2>Segmentler</h2><div id="segs"><div class="empty">gün seçin</div></div>
     </div>
   </div>
 </main>
@@ -57,9 +70,26 @@
 const TOKEN = localStorage.getItem('edgeway_token') || '';
 const H = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
 let cam = null, mode = 'live', hls = null;
+let segs = [], segIdx = -1, span = [0, 1];
 const $ = id => document.getElementById(id);
 
 async function j(url) { const r = await fetch(url, { headers: H }); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+function relLabel(dayStr) {
+  const d = new Date(+dayStr.slice(0,4), +dayStr.slice(4,6)-1, +dayStr.slice(6,8));
+  const days = Math.floor((new Date().setHours(0,0,0,0) - d) / 86400000);
+  return days === 0 ? 'bugün' : days === 1 ? 'dün' : days + ' gün önce';
+}
+function relTime(stamp) {   // YYYYMMDDHHMMSS -> "3 sa 12 dk önce"
+  const d = new Date(+stamp.slice(0,4), +stamp.slice(4,6)-1, +stamp.slice(6,8), +stamp.slice(8,10), +stamp.slice(10,12), +stamp.slice(12,14));
+  let s = Math.max(0, (Date.now() - d) / 1000);
+  if (s < 90) return 'az önce';
+  if (s < 3600) return Math.floor(s/60) + ' dk önce';
+  if (s < 86400) return Math.floor(s/3600) + ' sa ' + Math.floor(s%3600/60) + ' dk önce';
+  return Math.floor(s/86400) + ' gün önce';
+}
+function fmt(s) { s = Math.max(0, Math.floor(s)); return [s/3600, s/60%60, s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':'); }
+function nameT(n) { return (+n.slice(0,2))*3600 + (+n.slice(2,4))*60 + (+n.slice(4,6)); }
 
 function play(url, isHls) {
   const v = $('v');
@@ -70,6 +100,92 @@ function play(url, isHls) {
     hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { $('stat').textContent += ' · canli hata: ' + d.type; hls.destroy(); hls = null; } }); }
   else { v.src = url; }
   v.play().catch(() => {});
+}
+
+function playAt(i, off) {
+  if (i < 0 || i >= segs.length) return;
+  segIdx = i;
+  const v = $('v');
+  if (hls) { hls.destroy(); hls = null; }
+  v.onerror = () => {   // bozuk segment: atla ve akisa devam et
+    $('stat').textContent = $('stat').textContent.split(' · ')[0] + ' · atlandi: ' + segs[i].name;
+    if (i + 1 < segs.length) playAt(i + 1, 0);
+  };
+  v.src = segs[i].url;
+  v.onloadedmetadata = () => { if (off > 0.2) v.currentTime = off; v.play().catch(()=>{}); };
+}
+
+function seekTo(t) {
+  let i = segs.findIndex(s => t < s.t + s.dur);
+  if (i < 0) i = segs.length - 1;
+  if (t < segs[i].t) t = segs[i].t;
+  playAt(i, t - segs[i].t);
+}
+
+function buildTimeline() {
+  const tl = $('tl');
+  [...tl.querySelectorAll('.blk')].forEach(b => b.remove());
+  if (!segs.length) return;
+  span = [segs[0].t, segs[segs.length-1].t + segs[segs.length-1].dur];
+  const W = span[1] - span[0];
+  segs.forEach(s => {
+    const b = document.createElement('div');
+    b.className = 'blk';
+    b.style.cssText = `position:absolute;top:4px;bottom:4px;background:#2f7df655;border-radius:2px;left:${(s.t-span[0])/W*100}%;width:${Math.max(s.dur/W*100,0.15)}%`;
+    tl.appendChild(b);
+  });
+}
+
+async function loadDay(day, btn) {
+  [...$('days').children].forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  let list = [];
+  if (mode === 'cloud') {
+    const d = await j('/api/cloud/' + cam.name + '?date=' + day);
+    list = d.objects.filter(o => !['GLACIER','DEEP_ARCHIVE'].includes(o.storage_class))
+                    .map(o => ({ name: o.key.split('/').pop().replace('.mp4',''), url: o.url }));
+  } else {
+    const d = await j('/api/recordings/' + cam.name + '?date=' + day);
+    list = d.segments.map(s => ({ name: s.file.replace('.mp4',''), url: s.url }));
+  }
+  segs = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
+  segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
+  buildTimeline();
+  if (segs.length) playAt(0, 0); else $('ts').textContent = 'kayıt yok';
+}
+
+async function loadStorage() {
+  try {
+    const d = await j('/api/storage');
+    const s = d.cameras[cam.name];
+    if (!s || !s.segments) { $('storinfo').textContent = ''; return; }
+    const gb = (s.bytes / 1e9).toFixed(2);
+    $('storinfo').innerHTML = `Lokal: <b>${s.segments}</b> kayıt · ${gb} GB / ${d.max_gb || '∞'} GB · ` +
+      `en eski <b>${relTime(s.first)}</b> · en yeni <b>${relTime(s.last)}</b> · ` +
+      (s.cloud ? `bulut: ${s.pending_upload ? s.pending_upload + ' bekliyor' : 'senkron ✓'}` : 'bulut kapalı');
+  } catch (e) { $('storinfo').textContent = ''; }
+}
+
+async function refresh() {
+  if (!cam) return;
+  const live = (mode === 'live');
+  $('v').controls = false;
+  $('liveBadge').style.display = live ? '' : 'none';
+  $('ctrls').style.display = live ? 'none' : 'flex';
+  if (live) { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
+  $('recpanel').style.display = '';
+  const d = await j(mode === 'cloud' ? '/api/cloud/' + cam.name + '/days' : '/api/recordings/' + cam.name);
+  const days = $('days'); days.innerHTML = '';
+  if (!d.days.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; segs = []; buildTimeline(); return; }
+  d.days.forEach(day => {
+    const b = document.createElement('button');
+    b.innerHTML = relLabel(day) + '<br><span style="font-size:10px;color:var(--mut)">' + day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6) + '</span>';
+    b.dataset.day = day;
+    b.onclick = () => loadDay(day, b);
+    days.appendChild(b);
+  });
+  loadStorage();
+  loadDay(d.days[d.days.length-1], days.lastChild);
 }
 
 async function loadCams() {
@@ -91,39 +207,24 @@ function selectCam(n, info) {
   refresh();
 }
 
-async function refresh() {
-  if (!cam) return;
-  if (mode === 'live') { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
-  $('recpanel').style.display = '';
-  const d = await j('/api/recordings/' + cam.name);
-  const days = $('days'); days.innerHTML = '';
-  if (!d.days.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; $('segs').innerHTML = ''; return; }
-  d.days.forEach(day => {
-    const b = document.createElement('button');
-    b.textContent = day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6);
-    b.onclick = () => loadDay(day, b);
-    days.appendChild(b);
-  });
-  loadDay(d.days[d.days.length-1], days.lastChild);
-}
-
-async function loadDay(day, btn) {
-  [...$('days').children].forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  const d = await j('/api/recordings/' + cam.name + '?date=' + day);
-  const el = $('segs'); el.innerHTML = '';
-  if (!d.segments.length) { el.innerHTML = '<div class="empty">segment yok</div>'; return; }
-  let lastHour = null;
-  d.segments.forEach(s => {
-    const hour = s.file.slice(0,2);
-    if (hour !== lastHour) { lastHour = hour; const h = document.createElement('div'); h.style.cssText='width:100%;font-size:11px;color:var(--mut);margin:6px 0 2px'; h.textContent = hour + ':00'; el.appendChild(h); }
-    const b = document.createElement('button');
-    b.textContent = s.file.replace('.mp4','').replace(/(\d\d)(\d\d)(\d\d)/,'$1:$2:$3');
-    if (s.uploaded) b.classList.add('done');
-    b.onclick = () => play(s.url + (TOKEN ? '' : ''), false);
-    el.appendChild(b);
-  });
-}
+const V = document.getElementById('v');
+V.addEventListener('ended', () => { if (mode !== 'live' && segIdx + 1 < segs.length) playAt(segIdx + 1, 0); });
+V.addEventListener('timeupdate', () => {
+  if (mode === 'live' || segIdx < 0 || !segs.length) return;
+  const cur = segs[segIdx].t + V.currentTime;
+  $('ts').textContent = fmt(cur);
+  $('tlCur').style.left = ((cur - span[0]) / (span[1] - span[0]) * 100) + '%';
+});
+V.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
+V.addEventListener('pause', () => $('btnPlay').textContent = '▶');
+document.getElementById('btnPlay').onclick = () => V.paused ? V.play() : V.pause();
+document.getElementById('btnBack').onclick = () => { if (segIdx>=0) seekTo(segs[segIdx].t + V.currentTime - 60); };
+document.getElementById('btnFwd').onclick  = () => { if (segIdx>=0) seekTo(segs[segIdx].t + V.currentTime + 60); };
+document.getElementById('tl').onclick = e => {
+  if (!segs.length) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  seekTo(span[0] + (e.clientX - r.left) / r.width * (span[1] - span[0]));
+};
 
 $('mode').onclick = e => {
   if (e.target.dataset.m) {

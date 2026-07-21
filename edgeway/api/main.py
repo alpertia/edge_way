@@ -107,6 +107,40 @@ def api_cloud(cam: str, date: str, expires: int = 3600) -> dict:
     return {"cam": cam, "date": date, "objects": out}
 
 
+@app.get("/api/cloud/{cam}/days", dependencies=[Depends(auth)])
+def api_cloud_days(cam: str) -> dict:
+    """S3'teki gun klasorleri (soguk katman takvimi)."""
+    if not config.S3_BUCKET:
+        raise HTTPException(status_code=503, detail="S3 yapilandirilmamis")
+    import boto3
+
+    s3 = boto3.client("s3", region_name=config.AWS_REGION)
+    prefix = f"{config.S3_PREFIX}/{cam}/"
+    resp = s3.list_objects_v2(Bucket=config.S3_BUCKET, Prefix=prefix, Delimiter="/")
+    days = sorted(p["Prefix"][len(prefix):].strip("/") for p in resp.get("CommonPrefixes", []))
+    return {"cam": cam, "days": days}
+
+
+@app.get("/api/storage", dependencies=[Depends(auth)])
+def api_storage() -> dict:
+    """Kayit penceresi ve bulut senkron durumu — kamera basina."""
+    out = {}
+    for cam in config.cameras():
+        base = config.REC_DIR / cam
+        files = sorted(base.rglob("*.mp4")) if base.exists() else []
+        total = sum(f.stat().st_size for f in files)
+        pending = sum(1 for f in files if not f.with_suffix(f.suffix + ".up").exists())
+        first = last = None
+        if files:
+            first = files[0].parent.name + files[0].stem   # YYYYMMDDHHMMSS
+            last = files[-1].parent.name + files[-1].stem
+        out[cam] = {"segments": len(files), "bytes": total, "first": first,
+                    "last": last, "pending_upload": pending,
+                    "cloud": bool(config.S3_BUCKET)}
+    return {"cameras": out, "max_gb": config.MAX_STORAGE_GB,
+            "retention_days": config.RETENTION_DAYS}
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (WEB_DIR / "index.html").read_text(encoding="utf-8")
