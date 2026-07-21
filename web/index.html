@@ -34,7 +34,7 @@
 <body>
 <header>
   <span class="logo">edge<b>WAY</b></span><span class="pill">Pro2</span>
-  <span class="stat" id="stat">bağlanıyor…</span>
+  <span class="stat" id="stat">bağlanıyor…</span><span id="note" style="margin-left:8px;font-size:12px;color:#f59e0b"></span>
 </header>
 <main>
   <div class="panel">
@@ -46,6 +46,7 @@
       <video id="v" controls muted playsinline></video>
       <div id="liveBadge" style="display:none;position:absolute;top:10px;left:10px;background:rgba(220,38,38,.92);color:#fff;font-size:12px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:999px">● CANLI</div>
     </div>
+    <div id="grid" style="display:none;gap:8px"></div>
     <div class="bar" id="ctrls" style="display:none;align-items:center">
       <button id="btnPlay" style="flex:0 0 44px">⏸</button>
       <button id="btnBack" style="flex:0 0 56px">−1dk</button>
@@ -55,10 +56,22 @@
         <div id="tlCur" style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:0"></div>
       </div>
     </div>
+    <div id="jogWrap" style="display:none;justify-content:center;margin:6px 0">
+      <svg id="jog" width="128" height="128" viewBox="0 0 128 128" style="touch-action:none;cursor:grab">
+        <circle cx="64" cy="64" r="58" fill="#0d1830" stroke="#1e3252" stroke-width="2"/>
+        <g id="jogRing">
+          <g id="jogTicks"></g>
+          <circle id="jogDot" cx="64" cy="18" r="5" fill="#3b82f6"/>
+        </g>
+        <circle cx="64" cy="64" r="26" fill="#111f36" stroke="#1e3252"/>
+        <text id="jogLbl" x="64" y="68" text-anchor="middle" font-size="10" fill="#8fa3bd">jog</text>
+      </svg>
+    </div>
     <div class="bar" id="mode">
       <button data-m="live" class="on">Canlı</button>
       <button data-m="rec">Kayıtlar</button>
       <button data-m="cloud">Bulut</button>
+      <button data-m="sync" id="syncBtn" style="display:none">Senkron</button>
     </div>
     <div class="panel" id="recpanel" style="display:none">
       <div id="storinfo" style="font-size:12px;color:var(--mut);margin-bottom:8px"></div>
@@ -75,6 +88,11 @@ const $ = id => document.getElementById(id);
 
 async function j(url) { const r = await fetch(url, { headers: H }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
+let noteTimer = null;
+function setNote(msg) {
+  const n = $('note'); n.textContent = msg;
+  clearTimeout(noteTimer); noteTimer = setTimeout(() => n.textContent = '', 6000);
+}
 function relLabel(dayStr) {
   const d = new Date(+dayStr.slice(0,4), +dayStr.slice(4,6)-1, +dayStr.slice(6,8));
   const days = Math.floor((new Date().setHours(0,0,0,0) - d) / 86400000);
@@ -93,11 +111,10 @@ function nameT(n) { return (+n.slice(0,2))*3600 + (+n.slice(2,4))*60 + (+n.slice
 
 function play(url, isHls) {
   const v = $('v');
-  $('stat').textContent = $('stat').textContent.split(' · hata')[0];
-  v.onerror = () => { $('stat').textContent += ' · hata: video kod ' + (v.error ? v.error.code : '?'); };
+  v.onerror = () => setNote('hata: video kod ' + (v.error ? v.error.code : '?'));
   if (hls) { hls.destroy(); hls = null; }
   if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
-    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { $('stat').textContent += ' · canli hata: ' + d.type; hls.destroy(); hls = null; } }); }
+    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { setNote('canli hata: ' + d.type); hls.destroy(); hls = null; } }); }
   else { v.src = url; }
   v.play().catch(() => {});
 }
@@ -108,7 +125,7 @@ function playAt(i, off) {
   const v = $('v');
   if (hls) { hls.destroy(); hls = null; }
   v.onerror = () => {   // bozuk segment: atla ve akisa devam et
-    $('stat').textContent = $('stat').textContent.split(' · ')[0] + ' · atlandi: ' + segs[i].name;
+    setNote('atlandi: ' + segs[i].name);
     if (i + 1 < segs.length) playAt(i + 1, 0);
   };
   v.src = segs[i].url;
@@ -116,9 +133,13 @@ function playAt(i, off) {
 }
 
 function seekTo(t) {
+  if (!segs.length) return;
+  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
   let i = segs.findIndex(s => t < s.t + s.dur);
   if (i < 0) i = segs.length - 1;
   if (t < segs[i].t) t = segs[i].t;
+  const v = $('v');
+  if (i === segIdx && v.readyState > 0) { v.currentTime = t - segs[i].t; return; }
   playAt(i, t - segs[i].t);
 }
 
@@ -168,10 +189,14 @@ async function loadStorage() {
 
 async function refresh() {
   if (!cam) return;
-  const live = (mode === 'live');
+  const live = (mode === 'live'), sync = (mode === 'sync');
   $('v').controls = false;
+  $('grid').style.display = sync ? 'flex' : 'none';
+  $('v').parentElement.style.display = sync ? 'none' : '';
+  if (sync) { V.pause(); } else { SC.forEach(sc => sc.v.pause()); }
   $('liveBadge').style.display = live ? '' : 'none';
   $('ctrls').style.display = live ? 'none' : 'flex';
+  $('jogWrap').style.display = live ? 'none' : 'flex';
   if (live) { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
   $('recpanel').style.display = '';
   const d = await j(mode === 'cloud' ? '/api/cloud/' + cam.name + '/days' : '/api/recordings/' + cam.name);
@@ -181,17 +206,19 @@ async function refresh() {
     const b = document.createElement('button');
     b.innerHTML = relLabel(day) + '<br><span style="font-size:10px;color:var(--mut)">' + day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6) + '</span>';
     b.dataset.day = day;
-    b.onclick = () => loadDay(day, b);
+    b.onclick = () => (mode === 'sync' ? syncLoadDay(day, b) : loadDay(day, b));
     days.appendChild(b);
   });
   loadStorage();
-  loadDay(d.days[d.days.length-1], days.lastChild);
+  mode === 'sync' ? syncLoadDay(d.days[d.days.length-1], days.lastChild) : loadDay(d.days[d.days.length-1], days.lastChild);
 }
 
 async function loadCams() {
   const d = await j('/api/cameras');
   const el = $('cams'); el.innerHTML = '';
   const names = Object.keys(d.cameras);
+  allCams = names;
+  $('syncBtn').style.display = names.length > 1 ? '' : 'none';
   if (!names.length) { el.innerHTML = '<div class="empty">kamera tanımlı değil</div>'; return; }
   names.forEach(n => {
     const b = document.createElement('button');
@@ -207,6 +234,91 @@ function selectCam(n, info) {
   refresh();
 }
 
+let allCams = [], SC = [];
+
+function curT() {
+  if (mode === 'sync') return SC.length && SC[0].idx >= 0 ? SC[0].segs[SC[0].idx].t + SC[0].v.currentTime : span[0];
+  return segIdx >= 0 ? segs[segIdx].t + $('v').currentTime : span[0];
+}
+function anySeek(t) { mode === 'sync' ? syncSeekTo(t) : seekTo(t); }
+
+function scPlaySeg(sc, i, off) {
+  if (i < 0 || i >= sc.segs.length) return;
+  sc.idx = i;
+  sc.v.onerror = () => { setNote(sc.name + ' atlandi: ' + sc.segs[i].name); if (i + 1 < sc.segs.length) scPlaySeg(sc, i + 1, 0); };
+  sc.v.src = sc.segs[i].url;
+  sc.v.onloadedmetadata = () => { if (off > 0.2) sc.v.currentTime = off; sc.v.play().catch(()=>{}); };
+}
+
+function syncSeekTo(t) {
+  if (!SC.length) return;
+  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
+  SC.forEach(sc => {
+    if (!sc.segs.length) return;
+    let i = sc.segs.findIndex(s => t < s.t + s.dur);
+    if (i < 0) i = sc.segs.length - 1;
+    const off = Math.max(0, t - sc.segs[i].t);
+    if (i === sc.idx && sc.v.readyState > 0) sc.v.currentTime = off;
+    else scPlaySeg(sc, i, off);
+  });
+}
+
+async function syncLoadDay(day, btn) {
+  [...$('days').children].forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  const grid = $('grid'); grid.innerHTML = ''; SC = [];
+  for (const name of allCams) {
+    let list = [];
+    try {
+      const d = await j('/api/recordings/' + name + '?date=' + day);
+      list = d.segments.map(s => ({ name: s.file.replace('.mp4',''), url: s.url }));
+    } catch (e) {}
+    const ss = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
+    ss.forEach((s,i) => { s.dur = Math.min(60, (ss[i+1] ? ss[i+1].t - s.t : 60)) || 60; });
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1;min-width:0;position:relative';
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true;
+    v.style.cssText = 'width:100%;border-radius:10px;background:#000;aspect-ratio:16/9;object-fit:fill';
+    const lbl = document.createElement('div');
+    lbl.textContent = name;
+    lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px';
+    wrap.appendChild(v); wrap.appendChild(lbl); grid.appendChild(wrap);
+    const sc = { name, segs: ss, v, idx: -1 };
+    v.addEventListener('ended', () => { if (sc.idx + 1 < sc.segs.length) scPlaySeg(sc, sc.idx + 1, 0); });
+    SC.push(sc);
+  }
+  const withSegs = SC.filter(sc => sc.segs.length);
+  if (!withSegs.length) { $('ts').textContent = 'kayıt yok'; return; }
+  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
+          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
+  segs = withSegs[0].segs;   // cizelge bloklari master kameradan
+  buildTimeline();
+  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
+          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
+  const m = withSegs[0];
+  m.v.addEventListener('timeupdate', () => {
+    if (mode !== 'sync' || m.idx < 0) return;
+    const t = m.segs[m.idx].t + m.v.currentTime;
+    $('ts').textContent = fmt(t);
+    $('tlCur').style.left = ((t - span[0]) / (span[1] - span[0]) * 100) + '%';
+    SC.forEach(sc => {
+      if (sc === m || sc.idx < 0 || !sc.segs.length) return;
+      const exp = t - sc.segs[sc.idx].t;
+      if (exp >= 0 && exp < sc.segs[sc.idx].dur && Math.abs(sc.v.currentTime - exp) > 0.8) sc.v.currentTime = exp;
+      else if (exp >= sc.segs[sc.idx].dur || exp < 0) syncSeekToCam(sc, t);
+    });
+  });
+  m.v.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
+  m.v.addEventListener('pause', () => $('btnPlay').textContent = '▶');
+  syncSeekTo(span[0]);
+}
+function syncSeekToCam(sc, t) {
+  let i = sc.segs.findIndex(s => t < s.t + s.dur);
+  if (i < 0 || t < sc.segs[i].t - 120) return;
+  if (i !== sc.idx) scPlaySeg(sc, i, Math.max(0, t - sc.segs[i].t));
+}
+
 const V = document.getElementById('v');
 V.addEventListener('ended', () => { if (mode !== 'live' && segIdx + 1 < segs.length) playAt(segIdx + 1, 0); });
 V.addEventListener('timeupdate', () => {
@@ -217,13 +329,49 @@ V.addEventListener('timeupdate', () => {
 });
 V.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
 V.addEventListener('pause', () => $('btnPlay').textContent = '▶');
-document.getElementById('btnPlay').onclick = () => V.paused ? V.play() : V.pause();
-document.getElementById('btnBack').onclick = () => { if (segIdx>=0) seekTo(segs[segIdx].t + V.currentTime - 60); };
-document.getElementById('btnFwd').onclick  = () => { if (segIdx>=0) seekTo(segs[segIdx].t + V.currentTime + 60); };
+document.getElementById('btnPlay').onclick = () => {
+  if (mode === 'sync') { const p = SC.length && SC[0].v.paused; SC.forEach(sc => p ? sc.v.play().catch(()=>{}) : sc.v.pause()); }
+  else V.paused ? V.play() : V.pause();
+};
+document.getElementById('btnBack').onclick = () => anySeek(curT() - 60);
+document.getElementById('btnFwd').onclick  = () => anySeek(curT() + 60);
+// --- jog wheel: 1 tam tur = 60 sn ince ayar ---
+(() => {
+  const ticks = $('jogTicks');
+  for (let a = 0; a < 360; a += 30) {
+    const r = (a - 90) * Math.PI / 180;
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    t.setAttribute('x1', 64 + 50 * Math.cos(r)); t.setAttribute('y1', 64 + 50 * Math.sin(r));
+    t.setAttribute('x2', 64 + 56 * Math.cos(r)); t.setAttribute('y2', 64 + 56 * Math.sin(r));
+    t.setAttribute('stroke', '#1e3252'); t.setAttribute('stroke-width', '2');
+    ticks.appendChild(t);
+  }
+  const jog = $('jog');
+  let active = false, lastA = 0, acc = 0, baseT = 0, wasPlaying = false, rot = 0;
+  const ang = e => { const r = jog.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height/2, e.clientX - r.left - r.width/2); };
+  jog.addEventListener('pointerdown', e => {
+    if (mode === 'live' || (mode === 'sync' ? !SC.length : segIdx < 0)) return;
+    active = true; jog.setPointerCapture(e.pointerId);
+    lastA = ang(e); acc = 0; baseT = curT();
+    wasPlaying = mode === 'sync' ? (SC.length && !SC[0].v.paused) : !$('v').paused;
+    mode === 'sync' ? SC.forEach(sc => sc.v.pause()) : $('v').pause();
+  });
+  jog.addEventListener('pointermove', e => {
+    if (!active) return;
+    const a = ang(e);
+    let d = a - lastA;
+    if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+    lastA = a; acc += d; rot += d;
+    $('jogRing').setAttribute('transform', `rotate(${rot * 180 / Math.PI} 64 64)`);
+    anySeek(baseT + acc / (2 * Math.PI) * 60);
+  });
+  jog.addEventListener('pointerup', () => { if (active && wasPlaying) { mode === 'sync' ? SC.forEach(sc => sc.v.play().catch(()=>{})) : $('v').play().catch(()=>{}); } active = false; });
+})();
+
 document.getElementById('tl').onclick = e => {
   if (!segs.length) return;
   const r = e.currentTarget.getBoundingClientRect();
-  seekTo(span[0] + (e.clientX - r.left) / r.width * (span[1] - span[0]));
+  anySeek(span[0] + (e.clientX - r.left) / r.width * (span[1] - span[0]));
 };
 
 $('mode').onclick = e => {

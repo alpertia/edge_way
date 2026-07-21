@@ -25,4 +25,7 @@ check deploy/systemd/edgeway-uploader.service "TimeoutStartSec" "uploader zaman 
 check edgeway/api/main.py     "api_storage"            "depolama gorunurlugu"
 check web/index.html          "relTime"                "goreli zaman etiketleri"
 check web/index.html          "atlandi"                "bozuk segment atlama"
+check web/index.html          "jogWrap"                "jog kadrani (ince ayar)"
+check web/index.html          "setNote"                "tek gecici hata notu"
+check web/index.html          "syncSeekTo"             "coklu kamera senkron playback"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
