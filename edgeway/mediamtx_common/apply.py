@@ -16,7 +16,8 @@ def main() -> None:
     out_path = sys.argv[1] if len(sys.argv) > 1 else "/etc/edgeway/mediamtx.yml"
     cams = {}
     for name, url in config.cameras().items():
-        cams[name] = url.replace("/main/", "/sub/")  # canli = sub, kayit = main
+        cams[name] = url                                   # tekli canli = main (kalite)
+        cams[name + "_sub"] = url.replace("/main/", "/sub/")  # grid/dusuk bant
     if not cams:
         print("EDGEWAY_CAMERAS bos", file=sys.stderr)
         sys.exit(1)

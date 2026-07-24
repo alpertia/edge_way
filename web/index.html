@@ -42,7 +42,7 @@
     <div class="list" id="cams"><div class="empty">yükleniyor…</div></div>
   </div>
   <div>
-    <div style="position:relative">
+    <div id="vwrap" style="position:relative;overflow:hidden;border-radius:10px">
       <video id="v" controls muted playsinline></video>
       <div id="liveBadge" style="display:none;position:absolute;top:10px;left:10px;background:rgba(220,38,38,.92);color:#fff;font-size:12px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:999px">● CANLI</div>
     </div>
@@ -56,7 +56,7 @@
         <div id="tlCur" style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:0"></div>
       </div>
     </div>
-    <div id="jogWrap" style="display:none;justify-content:center;margin:6px 0">
+    <div id="jogWrap" style="display:none;justify-content:center;align-items:center;gap:16px;margin:6px 0">
       <svg id="jog" width="128" height="128" viewBox="0 0 128 128" style="touch-action:none;cursor:grab">
         <circle cx="64" cy="64" r="58" fill="#0d1830" stroke="#1e3252" stroke-width="2"/>
         <g id="jogRing">
@@ -66,11 +66,11 @@
         <circle cx="64" cy="64" r="26" fill="#111f36" stroke="#1e3252"/>
         <text id="jogLbl" x="64" y="68" text-anchor="middle" font-size="10" fill="#8fa3bd">jog</text>
       </svg>
+      <div id="jogTime" style="font-size:28px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums;min-width:132px">--:--:--</div>
     </div>
     <div class="bar" id="mode">
       <button data-m="live" class="on">Canlı</button>
       <button data-m="rec">Kayıtlar</button>
-      <button data-m="cloud">Bulut</button>
       <button data-m="sync" id="syncBtn" style="display:none">Senkron</button>
     </div>
     <div class="panel" id="recpanel" style="display:none">
@@ -160,15 +160,7 @@ function buildTimeline() {
 async function loadDay(day, btn) {
   [...$('days').children].forEach(b => b.classList.remove('on'));
   if (btn) btn.classList.add('on');
-  let list = [];
-  if (mode === 'cloud') {
-    const d = await j('/api/cloud/' + cam.name + '?date=' + day);
-    list = d.objects.filter(o => !['GLACIER','DEEP_ARCHIVE'].includes(o.storage_class))
-                    .map(o => ({ name: o.key.split('/').pop().replace('.mp4',''), url: o.url }));
-  } else {
-    const d = await j('/api/recordings/' + cam.name + '?date=' + day);
-    list = d.segments.map(s => ({ name: s.file.replace('.mp4',''), url: s.url }));
-  }
+  const list = await mergedSegs(cam.name, day);
   segs = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
   segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
   buildTimeline();
@@ -199,10 +191,11 @@ async function refresh() {
   $('jogWrap').style.display = live ? 'none' : 'flex';
   if (live) { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
   $('recpanel').style.display = '';
-  const d = await j(mode === 'cloud' ? '/api/cloud/' + cam.name + '/days' : '/api/recordings/' + cam.name);
+  $('v').style.transform = '';
+  const dayList = mode === 'sync' ? await allDays() : await camDays(cam.name);
   const days = $('days'); days.innerHTML = '';
-  if (!d.days.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; segs = []; buildTimeline(); return; }
-  d.days.forEach(day => {
+  if (!dayList.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; segs = []; buildTimeline(); return; }
+  dayList.forEach(day => {
     const b = document.createElement('button');
     b.innerHTML = relLabel(day) + '<br><span style="font-size:10px;color:var(--mut)">' + day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6) + '</span>';
     b.dataset.day = day;
@@ -210,7 +203,7 @@ async function refresh() {
     days.appendChild(b);
   });
   loadStorage();
-  mode === 'sync' ? syncLoadDay(d.days[d.days.length-1], days.lastChild) : loadDay(d.days[d.days.length-1], days.lastChild);
+  mode === 'sync' ? syncLoadDay(dayList[dayList.length-1], days.lastChild) : loadDay(dayList[dayList.length-1], days.lastChild);
 }
 
 async function loadCams() {
@@ -265,16 +258,53 @@ function syncSeekTo(t) {
   });
 }
 
+async function mergedSegs(name, day) {
+  let loc = [], cld = [];
+  try { const d = await j('/api/recordings/' + name + '?date=' + day);
+    loc = d.segments.map(s => ({ name: s.file.replace('.mp4',''), url: s.url })); } catch (e) {}
+  try { const d = await j('/api/cloud/' + name + '?date=' + day);
+    cld = d.objects.filter(o => !['GLACIER','DEEP_ARCHIVE'].includes(o.storage_class))
+                   .map(o => ({ name: o.key.split('/').pop().replace('.mp4',''), url: o.url })); } catch (e) {}
+  const have = new Set(loc.map(s => s.name));
+  return loc.concat(cld.filter(s => !have.has(s.name)));
+}
+
+async function camDays(name) {
+  const set = new Set();
+  try { (await j('/api/recordings/' + name)).days.forEach(x => set.add(x)); } catch (e) {}
+  try { (await j('/api/cloud/' + name + '/days')).days.forEach(x => set.add(x)); } catch (e) {}
+  return [...set].sort();
+}
+
+async function allDays() {
+  const set = new Set();
+  for (const name of allCams) {
+    try { (await j('/api/recordings/' + name)).days.forEach(x => set.add(x)); } catch (e) {}
+    try { (await j('/api/cloud/' + name + '/days')).days.forEach(x => set.add(x)); } catch (e) {}
+  }
+  return [...set].sort();
+}
+
+function attachZoom(v, wrap) {
+  let z = 1;
+  wrap.style.overflow = 'hidden'; wrap.style.borderRadius = '10px';
+  wrap.addEventListener('click', e => {
+    if (e.target !== v) return;
+    const r = v.getBoundingClientRect();
+    const ox = (e.clientX - r.left) / r.width * 100, oy = (e.clientY - r.top) / r.height * 100;
+    z = z >= 3 ? 1 : z + 1;
+    v.style.transformOrigin = ox + '% ' + oy + '%';
+    v.style.transform = z > 1 ? 'scale(' + z + ')' : '';
+    setNote(z > 1 ? 'yakinlastirma ' + z + 'x' : '');
+  });
+}
+
 async function syncLoadDay(day, btn) {
   [...$('days').children].forEach(b => b.classList.remove('on'));
   if (btn) btn.classList.add('on');
   const grid = $('grid'); grid.innerHTML = ''; SC = [];
   for (const name of allCams) {
-    let list = [];
-    try {
-      const d = await j('/api/recordings/' + name + '?date=' + day);
-      list = d.segments.map(s => ({ name: s.file.replace('.mp4',''), url: s.url }));
-    } catch (e) {}
+    const list = await mergedSegs(name, day);
     const ss = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
     ss.forEach((s,i) => { s.dur = Math.min(60, (ss[i+1] ? ss[i+1].t - s.t : 60)) || 60; });
     const wrap = document.createElement('div');
@@ -289,6 +319,7 @@ async function syncLoadDay(day, btn) {
     nc.textContent = 'bu saatte kayıt yok';
     nc.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#8fa3bd;font-size:13px;background:#000;border-radius:10px';
     wrap.appendChild(v); wrap.appendChild(lbl); wrap.appendChild(nc); grid.appendChild(wrap);
+    attachZoom(v, wrap);
     const sc = { name, segs: ss, v, idx: -1, nc };
     v.addEventListener('ended', () => { if (sc.idx + 1 < sc.segs.length) scPlaySeg(sc, sc.idx + 1, 0); });
     SC.push(sc);
@@ -306,6 +337,7 @@ async function syncLoadDay(day, btn) {
     if (mode !== 'sync' || m.idx < 0) return;
     const t = m.segs[m.idx].t + m.v.currentTime;
     $('ts').textContent = fmt(t);
+    $('jogTime').textContent = fmt(t);
     $('tlCur').style.left = ((t - span[0]) / (span[1] - span[0]) * 100) + '%';
     SC.forEach(sc => { if (sc !== m) syncTick(sc, t); });
   });
@@ -333,11 +365,13 @@ function syncTick(sc, t) {
 }
 
 const V = document.getElementById('v');
+attachZoom(V, document.getElementById('vwrap'));
 V.addEventListener('ended', () => { if (mode !== 'live' && segIdx + 1 < segs.length) playAt(segIdx + 1, 0); });
 V.addEventListener('timeupdate', () => {
   if (mode === 'live' || segIdx < 0 || !segs.length) return;
   const cur = segs[segIdx].t + V.currentTime;
   $('ts').textContent = fmt(cur);
+  $('jogTime').textContent = fmt(cur);
   $('tlCur').style.left = ((cur - span[0]) / (span[1] - span[0]) * 100) + '%';
 });
 V.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
@@ -360,7 +394,7 @@ document.getElementById('btnFwd').onclick  = () => anySeek(curT() + 60);
     ticks.appendChild(t);
   }
   const jog = $('jog');
-  let active = false, lastA = 0, acc = 0, baseT = 0, wasPlaying = false, rot = 0;
+  let active = false, lastA = 0, acc = 0, baseT = 0, wasPlaying = false, rot = 0, lastSeekMs = 0;
   const ang = e => { const r = jog.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height/2, e.clientX - r.left - r.width/2); };
   jog.addEventListener('pointerdown', e => {
     if (mode === 'live' || (mode === 'sync' ? !SC.length : segIdx < 0)) return;
@@ -376,9 +410,17 @@ document.getElementById('btnFwd').onclick  = () => anySeek(curT() + 60);
     if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
     lastA = a; acc += d; rot += d;
     $('jogRing').setAttribute('transform', `rotate(${rot * 180 / Math.PI} 64 64)`);
-    anySeek(baseT + acc / (2 * Math.PI) * 60);
+    const target = Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5));
+    $('jogTime').textContent = fmt(target);
+    $('tlCur').style.left = ((target - span[0]) / (span[1] - span[0]) * 100) + '%';
+    if (Date.now() - lastSeekMs > 120) { lastSeekMs = Date.now(); anySeek(target); }
   });
-  jog.addEventListener('pointerup', () => { if (active && wasPlaying) { mode === 'sync' ? SC.forEach(sc => sc.v.play().catch(()=>{})) : $('v').play().catch(()=>{}); } active = false; });
+  jog.addEventListener('pointerup', () => {
+    if (!active) return;
+    anySeek(Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5)));
+    if (wasPlaying) { mode === 'sync' ? SC.forEach(sc => sc.v.play().catch(()=>{})) : $('v').play().catch(()=>{}); }
+    active = false;
+  });
 })();
 
 document.getElementById('tl').onclick = e => {

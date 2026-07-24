@@ -32,13 +32,23 @@ def ffmpeg_cmd(cam: str, url: str) -> list[str]:
     out = config.REC_DIR / cam / "%Y%m%d" / "%H%M%S.mp4"
     return [
         "ffmpeg", "-nostdin", "-loglevel", "warning",
-        "-rtsp_transport", "tcp", "-i", url,
+        "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", url,
         "-c", "copy", "-map", "0:v:0", "-an",
         *(config.FFMPEG_EXTRA.split() if config.FFMPEG_EXTRA else []),
         "-f", "segment", "-segment_time", str(config.SEGMENT_SECONDS),
         "-segment_atclocktime", "1", "-reset_timestamps", "1",
         "-strftime", "1", str(out),
     ]
+
+
+def _newest_age(cam: str) -> float:
+    base = config.REC_DIR / cam
+    newest = 0.0
+    for f in base.rglob("*.mp4"):
+        m = f.stat().st_mtime
+        if m > newest:
+            newest = m
+    return time.time() - newest if newest else 0.0
 
 
 def record_loop(cam: str, url: str) -> None:
@@ -48,9 +58,15 @@ def record_loop(cam: str, url: str) -> None:
         t0 = time.time()
         proc = subprocess.Popen(ffmpeg_cmd(cam, url), stderr=subprocess.PIPE, text=True)
         threading.Thread(target=_pipe_masked, args=(cam, proc.stderr), daemon=True).start()
+        last_check = time.time()
         while RUN and proc.poll() is None:
             time.sleep(1)
             (config.REC_DIR / cam / datetime.now().strftime("%Y%m%d")).mkdir(parents=True, exist_ok=True)
+            if time.time() - last_check >= 30:
+                last_check = time.time()
+                if time.time() - t0 > 180 and _newest_age(cam) > 180:
+                    print(f"[recorder] {cam} 180sn segment uretmedi — ffmpeg kesiliyor (stall)", file=sys.stderr)
+                    proc.terminate()
         if proc.poll() is None:
             proc.terminate()
             proc.wait(timeout=10)

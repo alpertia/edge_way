@@ -4,9 +4,6 @@ Basarisiz push loglanir ama dongu olmez — cihaz bagimsiz calisir.
 """
 from __future__ import annotations
 
-from __future__ import annotations
-from __future__ import annotations
-from __future__ import annotations
 import json
 import os
 import shutil
@@ -48,7 +45,22 @@ def metrics() -> dict:
         "mem_used_pct": round((1 - mem_free / mem_total) * 100, 1) if mem_total else None,
         "disk_used_pct": round(disk.used / disk.total * 100, 1) if disk else None,
         "cameras": list(config.cameras()),
+        "rec_age_s": _rec_ages(),
     }
+
+
+def _rec_ages() -> dict:
+    out = {}
+    for cam in config.cameras():
+        base = config.REC_DIR / cam if hasattr(config, "REC_DIR") else None
+        newest = 0.0
+        if base and base.exists():
+            for f in base.rglob("*.mp4"):
+                m = f.stat().st_mtime
+                if m > newest:
+                    newest = m
+        out[cam] = int(time.time() - newest) if newest else None
+    return out
 
 
 def push(payload: dict) -> bool:
