@@ -32,10 +32,11 @@ def ffmpeg_cmd(cam: str, url: str) -> list[str]:
     out = config.REC_DIR / cam / "%Y%m%d" / "%H%M%S.mp4"
     return [
         "ffmpeg", "-nostdin", "-loglevel", "warning",
-        "-rtsp_transport", "tcp", "-rw_timeout", "15000000", "-i", url,
+        "-rtsp_transport", "tcp", "-i", url,
         "-c", "copy", "-map", "0:v:0", "-an",
         *(config.FFMPEG_EXTRA.split() if config.FFMPEG_EXTRA else []),
-        "-f", "segment", "-segment_time", str(config.SEGMENT_SECONDS),
+        "-f", "segment", "-segment_format_options", "movflags=+faststart",
+        "-segment_time", str(config.SEGMENT_SECONDS),
         "-segment_atclocktime", "1", "-reset_timestamps", "1",
         "-strftime", "1", str(out),
     ]

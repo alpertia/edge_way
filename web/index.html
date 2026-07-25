@@ -14,21 +14,31 @@
   header .logo b { color:var(--acc); }
   header .pill { font-size:12px; font-weight:700; color:var(--acc); border:1.5px solid var(--acc); border-radius:8px; padding:1px 8px; }
   header .stat { margin-left:auto; font-size:13px; color:var(--mut); }
-  main { display:grid; grid-template-columns:230px 1fr; gap:14px; padding:14px 18px; }
+  main { display:grid; grid-template-columns:210px 1fr; gap:14px; padding:14px 18px; }
   @media (max-width:800px){ main { grid-template-columns:1fr; } }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
-  .panel h2 { font-size:13px; letter-spacing:.6px; color:var(--mut); margin-bottom:10px; text-transform:uppercase; }
+  .panel h2 { font-size:12px; letter-spacing:.6px; color:var(--mut); margin-bottom:10px; text-transform:uppercase; }
   .list button { display:block; width:100%; text-align:left; background:none; border:1px solid transparent; color:var(--txt); padding:7px 10px; border-radius:7px; font-size:14px; cursor:pointer; }
-  .list button:hover { border-color:var(--line); }
   .list button.on { background:#16325c; border-color:var(--acc); }
   video { width:100%; border-radius:10px; background:#000; aspect-ratio:16/9; object-fit:fill; }
   .bar { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; }
-  .bar button { background:var(--panel); border:1px solid var(--line); color:var(--txt); padding:6px 12px; border-radius:7px; font-size:13px; cursor:pointer; }
+  .bar button { background:var(--panel); border:1px solid var(--line); color:var(--txt); padding:8px 16px; border-radius:8px; font-size:14px; cursor:pointer; }
   .bar button.on { border-color:var(--acc); color:var(--acc); font-weight:700; }
-  #segs { display:flex; gap:6px; flex-wrap:wrap; max-height:160px; overflow-y:auto; }
-  #segs button { font-size:12px; padding:4px 8px; }
-  #segs .done { opacity:.55; }
+  #ctrls button { padding:6px 12px; font-size:13px; }
+  #tl { flex:1; position:relative; height:30px; background:#0d1830; border:1px solid var(--line); border-radius:7px; cursor:pointer; overflow:hidden; min-width:140px; }
+  #cal { max-width:340px; }
+  .cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .cal-head b { font-size:14px; }
+  .cal-head button { background:none; border:1px solid var(--line); color:var(--txt); border-radius:6px; width:28px; height:28px; cursor:pointer; }
+  #calGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  #calGrid .dow { font-size:10px; color:var(--mut); text-align:center; padding:2px 0; }
+  #calGrid button { background:none; border:1px solid transparent; color:#55647a; border-radius:7px; padding:7px 0; font-size:13px; cursor:default; }
+  #calGrid button.avail { color:var(--txt); border-color:var(--line); cursor:pointer; }
+  #calGrid button.avail:hover { border-color:var(--acc); }
+  #calGrid button.on { background:#16325c; border-color:var(--acc); color:var(--acc); font-weight:800; }
   .empty { color:var(--mut); font-size:13px; padding:8px 0; }
+  #btnLive { border-color:#7f1d1d !important; color:#f87171; font-weight:800; }
+  #btnLive.on { background:#dc2626; border-color:#dc2626 !important; color:#fff; }
 </style>
 </head>
 <body>
@@ -43,48 +53,65 @@
   </div>
   <div>
     <div id="vwrap" style="position:relative;overflow:hidden;border-radius:10px">
-      <video id="v" controls muted playsinline></video>
+      <video id="v" muted playsinline></video>
       <div id="liveBadge" style="display:none;position:absolute;top:10px;left:10px;background:rgba(220,38,38,.92);color:#fff;font-size:12px;font-weight:800;letter-spacing:.5px;padding:4px 10px;border-radius:999px">● CANLI</div>
     </div>
-    <div id="grid" style="display:none;gap:8px"></div>
+    <div id="grid" style="display:none;gap:8px;flex-wrap:wrap"></div>
+
     <div class="bar" id="ctrls" style="display:none;align-items:center">
-      <button id="btnPlay" style="flex:0 0 44px">⏸</button>
-      <button id="btnBack" style="flex:0 0 56px">−1dk</button>
-      <button id="btnFwd" style="flex:0 0 56px">+1dk</button>
-      <span id="ts" style="font-size:13px;color:var(--mut);min-width:70px;text-align:center">--:--:--</span>
-      <div id="tl" style="flex:1;position:relative;height:30px;background:#0d1830;border:1px solid var(--line);border-radius:7px;cursor:pointer;overflow:hidden">
-        <div id="tlCur" style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:0"></div>
+      <button id="btnPlay" style="flex:0 0 42px">⏸</button>
+      <button id="btnBack">−1dk</button>
+      <button id="btnFwd">+1dk</button>
+      <div id="tl"><div id="tlCur" style="position:absolute;top:0;bottom:0;width:2px;background:var(--acc);left:0"></div></div>
+      <button id="multiBtn" title="çoklu görünüm" style="flex:0 0 42px;display:none">⊞</button>
+      <button id="setBtn" title="ayarlar" style="flex:0 0 42px">⚙</button>
+      <button id="btnLive">● CANLI</button>
+    </div>
+
+    <div id="jogWrap" style="display:none;justify-content:center;align-items:center;gap:18px;margin:8px 0;flex-wrap:wrap">
+      <svg id="dialTime" width="96" height="96" viewBox="0 0 128 128" style="touch-action:none;cursor:grab">
+        <circle cx="64" cy="64" r="58" fill="#0d1830" stroke="#1e3252" stroke-width="2"/>
+        <g class="ring"><g class="ticks"></g><circle class="dot" cx="64" cy="18" r="5" fill="#3b82f6"/></g>
+        <circle cx="64" cy="64" r="26" fill="#111f36" stroke="#1e3252"/>
+        <text x="64" y="68" text-anchor="middle" font-size="11" fill="#8fa3bd">Zaman</text>
+      </svg>
+      <div>
+        <div id="jogDate" style="font-size:17px;font-weight:700;color:var(--mut)">—</div>
+        <div id="jogTime" style="font-size:30px;font-weight:800;font-variant-numeric:tabular-nums">--:--:--</div>
       </div>
     </div>
-    <div id="jogWrap" style="display:none;justify-content:center;align-items:center;gap:16px;margin:6px 0">
-      <svg id="jog" width="128" height="128" viewBox="0 0 128 128" style="touch-action:none;cursor:grab">
-        <circle cx="64" cy="64" r="58" fill="#0d1830" stroke="#1e3252" stroke-width="2"/>
-        <g id="jogRing">
-          <g id="jogTicks"></g>
-          <circle id="jogDot" cx="64" cy="18" r="5" fill="#3b82f6"/>
-        </g>
-        <circle cx="64" cy="64" r="26" fill="#111f36" stroke="#1e3252"/>
-        <text id="jogLbl" x="64" y="68" text-anchor="middle" font-size="10" fill="#8fa3bd">jog</text>
-      </svg>
-      <div id="jogTime" style="font-size:28px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums;min-width:132px">--:--:--</div>
-    </div>
-    <div class="bar" id="mode">
-      <button data-m="live" class="on">Canlı</button>
-      <button data-m="rec">Kayıtlar</button>
-      <button data-m="sync" id="syncBtn" style="display:none">Senkron</button>
-    </div>
+
     <div class="panel" id="recpanel" style="display:none">
-      <div id="storinfo" style="font-size:12px;color:var(--mut);margin-bottom:8px"></div>
-      <h2>Günler</h2><div class="bar" id="days"></div>
+      <div id="storinfo" style="font-size:12px;color:var(--mut);margin-bottom:10px"></div>
+      <div id="cal">
+        <div class="cal-head">
+          <button id="calPrev">‹</button><b id="calTitle"></b><button id="calNext">›</button>
+        </div>
+        <div id="calGrid"></div>
+      </div>
+    </div>
+    <div class="panel" id="setPanel" style="display:none;margin-top:10px">
+      <h2>Faz farkı — kamera saat düzeltmesi (saniye, ± olabilir)</h2>
+      <div id="offList"></div>
+      <div class="bar"><button id="offSave">Kaydet</button></div>
     </div>
   </div>
 </main>
 <script>
 const TOKEN = localStorage.getItem('edgeway_token') || '';
 const H = TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
-let cam = null, mode = 'live', hls = null;
-let segs = [], segIdx = -1, span = [0, 1];
 const $ = id => document.getElementById(id);
+const AYLAR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const GUNAD = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+
+let cam = null, mode = 'watch', hls = null, atLive = false, liveTimer = null;
+let segs = [], segIdx = -1, span = [0, 1];
+let allCams = [], SC = [];
+let availDays = [], selDay = null, calY = 0, calM = 0, pendingDay = null;
+let OFFS = {}; try { OFFS = JSON.parse(localStorage.getItem('edgeway_offsets') || '{}'); } catch (e) {}
+function camOff(n) { return +(OFFS[n] || 0); }
+let selCams = new Set();
+const SYNC_LIMIT = 4;
 
 async function j(url) { const r = await fetch(url, { headers: H }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
@@ -93,12 +120,9 @@ function setNote(msg) {
   const n = $('note'); n.textContent = msg;
   clearTimeout(noteTimer); noteTimer = setTimeout(() => n.textContent = '', 6000);
 }
-function relLabel(dayStr) {
-  const d = new Date(+dayStr.slice(0,4), +dayStr.slice(4,6)-1, +dayStr.slice(6,8));
-  const days = Math.floor((new Date().setHours(0,0,0,0) - d) / 86400000);
-  return days === 0 ? 'bugün' : days === 1 ? 'dün' : days + ' gün önce';
-}
-function relTime(stamp) {   // YYYYMMDDHHMMSS -> "3 sa 12 dk önce"
+function fmt(s) { s = Math.max(0, Math.floor(s)); return [s/3600, s/60%60, s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':'); }
+function nameT(n) { return (+n.slice(0,2))*3600 + (+n.slice(2,4))*60 + (+n.slice(4,6)); }
+function relTime(stamp) {
   const d = new Date(+stamp.slice(0,4), +stamp.slice(4,6)-1, +stamp.slice(6,8), +stamp.slice(8,10), +stamp.slice(10,12), +stamp.slice(12,14));
   let s = Math.max(0, (Date.now() - d) / 1000);
   if (s < 90) return 'az önce';
@@ -106,158 +130,12 @@ function relTime(stamp) {   // YYYYMMDDHHMMSS -> "3 sa 12 dk önce"
   if (s < 86400) return Math.floor(s/3600) + ' sa ' + Math.floor(s%3600/60) + ' dk önce';
   return Math.floor(s/86400) + ' gün önce';
 }
-function fmt(s) { s = Math.max(0, Math.floor(s)); return [s/3600, s/60%60, s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':'); }
-function nameT(n) { return (+n.slice(0,2))*3600 + (+n.slice(2,4))*60 + (+n.slice(4,6)); }
-
-function play(url, isHls) {
-  const v = $('v');
-  v.onerror = () => setNote('hata: video kod ' + (v.error ? v.error.code : '?'));
-  if (hls) { hls.destroy(); hls = null; }
-  if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
-    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { setNote('canli hata: ' + d.type); hls.destroy(); hls = null; } }); }
-  else { v.src = url; }
-  v.play().catch(() => {});
+function fmtDay(day) {
+  const d = new Date(+day.slice(0,4), +day.slice(4,6)-1, +day.slice(6,8));
+  return d.getDate() + ' ' + AYLAR[d.getMonth()].slice(0,3) + ' ' + GUNAD[(d.getDay()+6)%7];
 }
 
-function playAt(i, off) {
-  if (i < 0 || i >= segs.length) return;
-  segIdx = i;
-  const v = $('v');
-  if (hls) { hls.destroy(); hls = null; }
-  v.onerror = () => {   // bozuk segment: atla ve akisa devam et
-    setNote('atlandi: ' + segs[i].name);
-    if (i + 1 < segs.length) playAt(i + 1, 0);
-  };
-  v.src = segs[i].url;
-  v.onloadedmetadata = () => { if (off > 0.2) v.currentTime = off; v.play().catch(()=>{}); };
-}
-
-function seekTo(t) {
-  if (!segs.length) return;
-  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
-  let i = segs.findIndex(s => t < s.t + s.dur);
-  if (i < 0) i = segs.length - 1;
-  if (t < segs[i].t) t = segs[i].t;
-  const v = $('v');
-  if (i === segIdx && v.readyState > 0) { v.currentTime = t - segs[i].t; return; }
-  playAt(i, t - segs[i].t);
-}
-
-function buildTimeline() {
-  const tl = $('tl');
-  [...tl.querySelectorAll('.blk')].forEach(b => b.remove());
-  if (!segs.length) return;
-  span = [segs[0].t, segs[segs.length-1].t + segs[segs.length-1].dur];
-  const W = span[1] - span[0];
-  segs.forEach(s => {
-    const b = document.createElement('div');
-    b.className = 'blk';
-    b.style.cssText = `position:absolute;top:4px;bottom:4px;background:#2f7df655;border-radius:2px;left:${(s.t-span[0])/W*100}%;width:${Math.max(s.dur/W*100,0.15)}%`;
-    tl.appendChild(b);
-  });
-}
-
-async function loadDay(day, btn) {
-  [...$('days').children].forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  const list = await mergedSegs(cam.name, day);
-  segs = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
-  segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
-  buildTimeline();
-  if (segs.length) playAt(0, 0); else $('ts').textContent = 'kayıt yok';
-}
-
-async function loadStorage() {
-  try {
-    const d = await j('/api/storage');
-    const s = d.cameras[cam.name];
-    if (!s || !s.segments) { $('storinfo').textContent = ''; return; }
-    const gb = (s.bytes / 1e9).toFixed(2);
-    $('storinfo').innerHTML = `Lokal: <b>${s.segments}</b> kayıt · ${gb} GB / ${d.max_gb || '∞'} GB · ` +
-      `en eski <b>${relTime(s.first)}</b> · en yeni <b>${relTime(s.last)}</b> · ` +
-      (s.cloud ? `bulut: ${s.pending_upload ? s.pending_upload + ' bekliyor' : 'senkron ✓'}` : 'bulut kapalı');
-  } catch (e) { $('storinfo').textContent = ''; }
-}
-
-async function refresh() {
-  if (!cam) return;
-  const live = (mode === 'live'), sync = (mode === 'sync');
-  $('v').controls = false;
-  $('grid').style.display = sync ? 'flex' : 'none';
-  $('v').parentElement.style.display = sync ? 'none' : '';
-  if (sync) { V.pause(); } else { SC.forEach(sc => sc.v.pause()); }
-  $('liveBadge').style.display = live ? '' : 'none';
-  $('ctrls').style.display = live ? 'none' : 'flex';
-  $('jogWrap').style.display = live ? 'none' : 'flex';
-  if (live) { $('recpanel').style.display = 'none'; play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true); return; }
-  $('recpanel').style.display = '';
-  $('v').style.transform = '';
-  const dayList = mode === 'sync' ? await allDays() : await camDays(cam.name);
-  const days = $('days'); days.innerHTML = '';
-  if (!dayList.length) { days.innerHTML = '<div class="empty">kayıt yok</div>'; segs = []; buildTimeline(); return; }
-  dayList.forEach(day => {
-    const b = document.createElement('button');
-    b.innerHTML = relLabel(day) + '<br><span style="font-size:10px;color:var(--mut)">' + day.slice(0,4)+'-'+day.slice(4,6)+'-'+day.slice(6) + '</span>';
-    b.dataset.day = day;
-    b.onclick = () => (mode === 'sync' ? syncLoadDay(day, b) : loadDay(day, b));
-    days.appendChild(b);
-  });
-  loadStorage();
-  mode === 'sync' ? syncLoadDay(dayList[dayList.length-1], days.lastChild) : loadDay(dayList[dayList.length-1], days.lastChild);
-}
-
-async function loadCams() {
-  const d = await j('/api/cameras');
-  const el = $('cams'); el.innerHTML = '';
-  const names = Object.keys(d.cameras);
-  allCams = names;
-  $('syncBtn').style.display = names.length > 1 ? '' : 'none';
-  if (!names.length) { el.innerHTML = '<div class="empty">kamera tanımlı değil</div>'; return; }
-  names.forEach(n => {
-    const b = document.createElement('button');
-    b.textContent = n; b.onclick = () => selectCam(n, d.cameras[n]);
-    el.appendChild(b);
-  });
-  selectCam(names[0], d.cameras[names[0]]);
-}
-
-function selectCam(n, info) {
-  cam = { name: n, ...info };
-  [...$('cams').children].forEach(b => b.classList.toggle('on', b.textContent === n));
-  refresh();
-}
-
-let allCams = [], SC = [];
-
-function curT() {
-  if (mode === 'sync') return SC.length && SC[0].idx >= 0 ? SC[0].segs[SC[0].idx].t + SC[0].v.currentTime : span[0];
-  return segIdx >= 0 ? segs[segIdx].t + $('v').currentTime : span[0];
-}
-function anySeek(t) { mode === 'sync' ? syncSeekTo(t) : seekTo(t); }
-
-function scPlaySeg(sc, i, off) {
-  if (i < 0 || i >= sc.segs.length) return;
-  sc.idx = i;
-  if (sc.nc) sc.nc.style.display = 'none';
-  sc.v.onerror = () => { setNote(sc.name + ' atlandi: ' + sc.segs[i].name); if (i + 1 < sc.segs.length) scPlaySeg(sc, i + 1, 0); };
-  sc.v.src = sc.segs[i].url;
-  sc.v.onloadedmetadata = () => { if (off > 0.2) sc.v.currentTime = off; sc.v.play().catch(()=>{}); };
-}
-
-function syncSeekTo(t) {
-  if (!SC.length) return;
-  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
-  SC.forEach(sc => {
-    if (!sc.segs.length) { blankCam(sc); return; }
-    let i = sc.segs.findIndex(s => t < s.t + s.dur);
-    if (i < 0) { blankCam(sc); return; }
-    if (t < sc.segs[i].t - 1) { blankCam(sc); return; }
-    const off = Math.max(0, t - sc.segs[i].t);
-    if (i === sc.idx && sc.v.readyState > 0) sc.v.currentTime = off;
-    else scPlaySeg(sc, i, off);
-  });
-}
-
+/* ---- veri: birlesik takvim (lokal + bulut tek gorunum) ---- */
 async function mergedSegs(name, day) {
   let loc = [], cld = [];
   try { const d = await j('/api/recordings/' + name + '?date=' + day);
@@ -268,23 +146,19 @@ async function mergedSegs(name, day) {
   const have = new Set(loc.map(s => s.name));
   return loc.concat(cld.filter(s => !have.has(s.name)));
 }
-
 async function camDays(name) {
   const set = new Set();
   try { (await j('/api/recordings/' + name)).days.forEach(x => set.add(x)); } catch (e) {}
   try { (await j('/api/cloud/' + name + '/days')).days.forEach(x => set.add(x)); } catch (e) {}
   return [...set].sort();
 }
-
 async function allDays() {
   const set = new Set();
-  for (const name of allCams) {
-    try { (await j('/api/recordings/' + name)).days.forEach(x => set.add(x)); } catch (e) {}
-    try { (await j('/api/cloud/' + name + '/days')).days.forEach(x => set.add(x)); } catch (e) {}
-  }
+  for (const name of [...selCams].slice(0, SYNC_LIMIT)) (await camDays(name)).forEach(x => set.add(x));
   return [...set].sort();
 }
 
+/* ---- zoom: tikla-buyut (3 kademe) ---- */
 function attachZoom(v, wrap) {
   let z = 1;
   wrap.style.overflow = 'hidden'; wrap.style.borderRadius = '10px';
@@ -299,56 +173,84 @@ function attachZoom(v, wrap) {
   });
 }
 
-async function syncLoadDay(day, btn) {
-  [...$('days').children].forEach(b => b.classList.remove('on'));
-  if (btn) btn.classList.add('on');
-  const grid = $('grid'); grid.innerHTML = ''; SC = [];
-  for (const name of allCams) {
-    const list = await mergedSegs(name, day);
-    const ss = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
-    ss.forEach((s,i) => { s.dur = Math.min(60, (ss[i+1] ? ss[i+1].t - s.t : 60)) || 60; });
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'flex:1;min-width:0;position:relative';
-    const v = document.createElement('video');
-    v.muted = true; v.playsInline = true;
-    v.style.cssText = 'width:100%;border-radius:10px;background:#000;aspect-ratio:16/9;object-fit:fill';
-    const lbl = document.createElement('div');
-    lbl.textContent = name;
-    lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px';
-    const nc = document.createElement('div');
-    nc.textContent = 'bu saatte kayıt yok';
-    nc.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#8fa3bd;font-size:13px;background:#000;border-radius:10px';
-    wrap.appendChild(v); wrap.appendChild(lbl); wrap.appendChild(nc); grid.appendChild(wrap);
-    attachZoom(v, wrap);
-    const sc = { name, segs: ss, v, idx: -1, nc };
-    v.addEventListener('ended', () => { if (sc.idx + 1 < sc.segs.length) scPlaySeg(sc, sc.idx + 1, 0); });
-    SC.push(sc);
-  }
-  const withSegs = SC.filter(sc => sc.segs.length);
-  if (!withSegs.length) { $('ts').textContent = 'kayıt yok'; return; }
-  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
-          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
-  segs = withSegs[0].segs;   // cizelge bloklari master kameradan
-  buildTimeline();
-  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
-          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
-  const m = withSegs[0];
-  m.v.addEventListener('timeupdate', () => {
-    if (mode !== 'sync' || m.idx < 0) return;
-    const t = m.segs[m.idx].t + m.v.currentTime;
-    $('ts').textContent = fmt(t);
-    $('jogTime').textContent = fmt(t);
-    $('tlCur').style.left = ((t - span[0]) / (span[1] - span[0]) * 100) + '%';
-    SC.forEach(sc => { if (sc !== m) syncTick(sc, t); });
+/* ---- tekli oynatim ---- */
+function play(url, isHls) {
+  const v = $('v');
+  v.onerror = () => setNote('hata: video kod ' + (v.error ? v.error.code : '?'));
+  if (hls) { hls.destroy(); hls = null; }
+  if (isHls && Hls.isSupported()) { hls = new Hls(); hls.loadSource(url); hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { setNote('canli hata: ' + d.type); hls.destroy(); hls = null; } }); }
+  else { v.src = url; }
+  v.play().catch(() => {});
+}
+function playAt(i, off) {
+  if (i < 0 || i >= segs.length) return;
+  segIdx = i;
+  const v = $('v');
+  if (hls) { hls.destroy(); hls = null; }
+  v.onerror = () => { setNote('atlandi: ' + segs[i].name); if (i + 1 < segs.length) playAt(i + 1, 0); };
+  v.src = segs[i].url;
+  v.onloadedmetadata = () => { if (off > 0.2) v.currentTime = off; v.play().catch(()=>{}); };
+}
+function seekTo(t) {
+  if (!segs.length) return;
+  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
+  let i = segs.findIndex(s => t < s.t + s.dur);
+  if (i < 0) i = segs.length - 1;
+  if (t < segs[i].t) t = segs[i].t;
+  const v = $('v');
+  if (i === segIdx && v.readyState > 0) { v.currentTime = t - segs[i].t; return; }
+  playAt(i, t - segs[i].t);
+}
+function buildTimeline() {
+  const tl = $('tl');
+  [...tl.querySelectorAll('.blk')].forEach(b => b.remove());
+  if (!segs.length) return;
+  span = [segs[0].t, segs[segs.length-1].t + segs[segs.length-1].dur];
+  const W = span[1] - span[0];
+  segs.forEach(s => {
+    const b = document.createElement('div');
+    b.className = 'blk';
+    b.style.cssText = `position:absolute;top:4px;bottom:4px;background:#2f7df655;border-radius:2px;left:${(s.t-span[0])/W*100}%;width:${Math.max(s.dur/W*100,0.15)}%`;
+    tl.appendChild(b);
   });
-  m.v.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
-  m.v.addEventListener('pause', () => $('btnPlay').textContent = '▶');
-  syncSeekTo(span[0]);
+}
+async function loadDay(day, autoplay = true) {
+  const list = await mergedSegs(cam.name, day);
+  segs = list.map(s => ({ ...s, t: nameT(s.name) + camOff(cam.name) })).sort((a,b) => a.t - b.t);
+  segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
+  buildTimeline();
+  $('jogDate').textContent = fmtDay(day);
+  if (segs.length && autoplay) playAt(0, 0);
+  else if (!segs.length && autoplay) $('jogTime').textContent = 'kayıt yok';
+}
+
+/* ---- senkron (coklu gorunum) ---- */
+function scPlaySeg(sc, i, off) {
+  if (i < 0 || i >= sc.segs.length) return;
+  sc.idx = i;
+  if (sc.nc) sc.nc.style.display = 'none';
+  sc.v.onerror = () => { setNote(sc.name + ' atlandi: ' + sc.segs[i].name); if (i + 1 < sc.segs.length) scPlaySeg(sc, i + 1, 0); };
+  sc.v.src = sc.segs[i].url;
+  sc.v.onloadedmetadata = () => { if (off > 0.2) sc.v.currentTime = off; sc.v.play().catch(()=>{}); };
 }
 function blankCam(sc) {
   if (sc.idx === -1 && !sc.v.getAttribute('src')) return;
   sc.idx = -1; sc.v.pause(); sc.v.removeAttribute('src'); sc.v.load();
   if (sc.nc) sc.nc.style.display = 'flex';
+}
+function syncSeekTo(t) {
+  if (!SC.length) return;
+  t = Math.max(span[0], Math.min(t, span[1] - 0.5));
+  SC.forEach(sc => {
+    if (!sc.segs.length) { blankCam(sc); return; }
+    let i = sc.segs.findIndex(s => t < s.t + s.dur);
+    if (i < 0) { blankCam(sc); return; }
+    if (t < sc.segs[i].t - 1) { blankCam(sc); return; }
+    const off = Math.max(0, t - sc.segs[i].t);
+    if (i === sc.idx && sc.v.readyState > 0) sc.v.currentTime = off;
+    else scPlaySeg(sc, i, off);
+  });
 }
 function syncSeekToCam(sc, t) {
   let i = sc.segs.findIndex(s => t < s.t + s.dur);
@@ -363,28 +265,260 @@ function syncTick(sc, t) {
     if (Math.abs(sc.v.currentTime - exp) > 0.8) sc.v.currentTime = exp;
   } else syncSeekToCam(sc, t);
 }
+async function syncLoadDay(day) {
+  const grid = $('grid'); grid.innerHTML = ''; SC = [];
+  const chosen = [...selCams].slice(0, SYNC_LIMIT);
+  for (const name of chosen) {
+    const list = await mergedSegs(name, day);
+    const ss = list.map(s => ({ ...s, t: nameT(s.name) + camOff(name) })).sort((a,b) => a.t - b.t);
+    ss.forEach((s,i) => { s.dur = Math.min(60, (ss[i+1] ? ss[i+1].t - s.t : 60)) || 60; });
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1 1 45%;min-width:0;position:relative';
+    const v = document.createElement('video');
+    v.muted = true; v.playsInline = true;
+    v.style.cssText = 'width:100%;border-radius:10px;background:#000;aspect-ratio:16/9;object-fit:fill';
+    const lbl = document.createElement('div');
+    lbl.textContent = name;
+    lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px;pointer-events:none';
+    const nc = document.createElement('div');
+    nc.textContent = 'bu saatte kayıt yok';
+    nc.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#8fa3bd;font-size:13px;background:#000;border-radius:10px;pointer-events:none';
+    wrap.appendChild(v); wrap.appendChild(lbl); wrap.appendChild(nc); grid.appendChild(wrap);
+    attachZoom(v, wrap);
+    const sc = { name, segs: ss, v, idx: -1, nc };
+    v.addEventListener('ended', () => { if (sc.idx + 1 < sc.segs.length) scPlaySeg(sc, sc.idx + 1, 0); });
+    SC.push(sc);
+  }
+  const withSegs = SC.filter(sc => sc.segs.length);
+  $('jogDate').textContent = fmtDay(day);
+  if (!withSegs.length) { $('jogTime').textContent = 'kayıt yok'; return; }
+  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
+          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
+  segs = withSegs[0].segs;
+  buildTimeline();
+  span = [Math.min(...withSegs.map(sc => sc.segs[0].t)),
+          Math.max(...withSegs.map(sc => sc.segs[sc.segs.length-1].t + sc.segs[sc.segs.length-1].dur))];
+  const m = withSegs[0];
+  m.v.addEventListener('timeupdate', () => {
+    if (mode !== 'sync' || m.idx < 0) return;
+    const t = m.segs[m.idx].t + m.v.currentTime;
+    $('jogTime').textContent = fmt(t);
+    $('tlCur').style.left = ((t - span[0]) / (span[1] - span[0]) * 100) + '%';
+    SC.forEach(sc => { if (sc !== m) syncTick(sc, t); });
+  });
+  m.v.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
+  m.v.addEventListener('pause', () => $('btnPlay').textContent = '▶');
+  syncSeekTo(span[0]);
+}
 
-const V = document.getElementById('v');
-attachZoom(V, document.getElementById('vwrap'));
-V.addEventListener('ended', () => { if (mode !== 'live' && segIdx + 1 < segs.length) playAt(segIdx + 1, 0); });
+/* ---- kesintisiz canli-gecmis (goLive / time-shift) ---- */
+function todayKey() { const d = new Date(); return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); }
+function liveEdgeT() { const d = new Date(); return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds(); }
+function goLive() {
+  atLive = true; segIdx = -1;
+  $('liveBadge').style.display = '';
+  $('btnLive').classList.add('on');
+  play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true);
+  startLiveTick();
+}
+function exitLiveState() {
+  atLive = false;
+  clearInterval(liveTimer); liveTimer = null;
+  $('liveBadge').style.display = 'none';
+  $('btnLive').classList.remove('on');
+  if (hls) { hls.destroy(); hls = null; }
+}
+function startLiveTick() {
+  clearInterval(liveTimer);
+  let n = 0;
+  liveTimer = setInterval(async () => {
+    if (!atLive) return;
+    const t = liveEdgeT();
+    $('jogTime').textContent = fmt(t);
+    $('jogDate').textContent = fmtDay(todayKey());
+    if (segs.length) span = [segs[0].t, Math.max(t, segs[segs.length-1].t + segs[segs.length-1].dur)];
+    else span = [Math.max(0, t - 600), t];
+    $('tlCur').style.left = '100%';
+    if (++n % 120 === 0 && selDay === todayKey()) {   // 60sn'de bir bugunu tazele
+      const list = await mergedSegs(cam.name, selDay);
+      segs = list.map(s => ({ ...s, t: nameT(s.name) })).sort((a,b) => a.t - b.t);
+      segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
+      buildTimeline();
+    }
+  }, 500);
+}
+
+/* ---- ortak seek ---- */
+function curT() {
+  if (mode === 'sync') return SC.length && SC[0].idx >= 0 ? SC[0].segs[SC[0].idx].t + SC[0].v.currentTime : span[0];
+  if (atLive) return liveEdgeT();
+  return segIdx >= 0 ? segs[segIdx].t + $('v').currentTime : span[0];
+}
+async function refreshSegsNow() {
+  const list = await mergedSegs(cam.name, selDay);
+  segs = list.map(s => ({ ...s, t: nameT(s.name) + camOff(cam.name) })).sort((a,b) => a.t - b.t);
+  segs.forEach((s,i) => { s.dur = Math.min(60, (segs[i+1] ? segs[i+1].t - s.t : 60)) || 60; });
+  buildTimeline();
+}
+function clampSeek(t) {
+  if (!segs.length) {
+    setNote('bu gunde kayit yok — canliya donuldu');
+    if (selDay === todayKey()) goLive();
+    return;
+  }
+  const end = segs[segs.length-1].t + segs[segs.length-1].dur;
+  if (t > end - 1) { setNote('son ~1 dk hazirlaniyor — en yakin hazir ana alindi'); t = end - 1; }
+  seekTo(t);
+}
+function anySeek(t) {
+  if (mode === 'sync') { syncSeekTo(t); return; }
+  if (selDay === todayKey() && t >= liveEdgeT() - 3) { if (!atLive) goLive(); return; }
+  if (atLive) { exitLiveState(); refreshSegsNow().then(() => clampSeek(t)); return; }
+  clampSeek(t);
+}
+
+/* ---- aylik takvim ---- */
+function renderCal() {
+  $('calTitle').textContent = AYLAR[calM] + ' ' + calY;
+  const g = $('calGrid'); g.innerHTML = '';
+  GUNAD.forEach(d => { const s = document.createElement('div'); s.className = 'dow'; s.textContent = d; g.appendChild(s); });
+  const first = new Date(calY, calM, 1);
+  const lead = (first.getDay() + 6) % 7;
+  for (let i = 0; i < lead; i++) g.appendChild(document.createElement('div'));
+  const dim = new Date(calY, calM + 1, 0).getDate();
+  const avail = new Set(availDays);
+  for (let d = 1; d <= dim; d++) {
+    const key = calY + String(calM+1).padStart(2,'0') + String(d).padStart(2,'0');
+    const b = document.createElement('button');
+    b.textContent = d;
+    if (avail.has(key)) {
+      b.className = 'avail' + (key === selDay ? ' on' : '');
+      b.onclick = () => pickDay(key);
+    }
+    g.appendChild(b);
+  }
+}
+function pickDay(day) {
+  selDay = day;
+  calY = +day.slice(0,4); calM = +day.slice(4,6) - 1;
+  renderCal();
+  if (mode === 'sync') { syncLoadDay(day); return; }
+  const isToday = (day === todayKey());
+  if (!isToday) exitLiveState();
+  loadDay(day, !isToday).then(() => { if (isToday) goLive(); });
+}
+$('calPrev').onclick = () => { calM--; if (calM < 0) { calM = 11; calY--; } renderCal(); };
+$('calNext').onclick = () => { calM++; if (calM > 11) { calM = 0; calY++; } renderCal(); };
+
+/* ---- depolama satiri ---- */
+async function loadStorage() {
+  try {
+    const d = await j('/api/storage');
+    const s = d.cameras[cam.name];
+    if (!s || !s.segments) { $('storinfo').textContent = ''; return; }
+    const gb = (s.bytes / 1e9).toFixed(2);
+    $('storinfo').innerHTML = `Lokal tampon: <b>${s.segments}</b> kayıt · ${gb} GB / ${d.max_gb || '∞'} GB · ` +
+      `en yeni <b>${relTime(s.last)}</b> · ` +
+      (s.cloud ? `bulut: ${s.pending_upload ? s.pending_upload + ' bekliyor' : 'senkron ✓'}` : 'bulut kapalı');
+  } catch (e) { $('storinfo').textContent = ''; }
+}
+
+/* ---- mod gecisleri ---- */
+async function refresh() {
+  if (!cam) return;
+  const sync = (mode === 'sync');
+  exitLiveState();
+  $('v').style.transform = '';
+  $('grid').style.display = sync ? 'flex' : 'none';
+  $('vwrap').style.display = sync ? 'none' : '';
+  if (sync) { $('v').pause(); } else { SC.forEach(sc => sc.v.pause()); }
+  $('ctrls').style.display = 'flex';
+  $('jogWrap').style.display = 'flex';
+  $('recpanel').style.display = '';
+  $('btnLive').style.display = sync ? 'none' : '';
+  $('multiBtn').style.display = (allCams.length > 1) ? '' : 'none';
+  $('multiBtn').classList.toggle('on', sync);
+  [...document.querySelectorAll('.camChk')].forEach(c => c.style.display = sync ? '' : 'none');
+  let days = sync ? await allDays() : await camDays(cam.name);
+  if (!sync && !days.includes(todayKey())) days = days.concat([todayKey()]);
+  availDays = days;
+  loadStorage();
+  const day = (pendingDay && days.includes(pendingDay)) ? pendingDay : days[days.length - 1];
+  pendingDay = null;
+  pickDay(day);
+}
+$('multiBtn').onclick = () => { pendingDay = selDay; mode = (mode === 'sync') ? 'watch' : 'sync'; refresh(); };
+$('btnLive').onclick = () => {
+  if (mode === 'sync') { mode = 'watch'; pendingDay = todayKey(); refresh(); return; }
+  if (selDay !== todayKey()) pickDay(todayKey());
+  else if (!atLive) goLive();
+};
+
+/* ---- kameralar ---- */
+async function loadCams() {
+  const d = await j('/api/cameras');
+  const el = $('cams'); el.innerHTML = '';
+  const names = Object.keys(d.cameras);
+  allCams = names;
+  if (!names.length) { el.innerHTML = '<div class="empty">kamera tanımlı değil</div>'; return; }
+  names.forEach((n, ix) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px';
+    const b = document.createElement('button');
+    b.textContent = n; b.style.flex = '1'; b.onclick = () => selectCam(n, d.cameras[n]);
+    const c = document.createElement('input');
+    c.type = 'checkbox'; c.className = 'camChk'; c.dataset.cam = n;
+    c.style.display = 'none';
+    c.checked = ix < 2;
+    if (c.checked) selCams.add(n);
+    c.onchange = () => {
+      if (c.checked) {
+        if (selCams.size >= SYNC_LIMIT) { c.checked = false; setNote('senkron limiti ' + SYNC_LIMIT + ' kamera'); return; }
+        selCams.add(n);
+      } else selCams.delete(n);
+      if (mode === 'sync' && selDay) syncLoadDay(selDay);
+    };
+    row.appendChild(b); row.appendChild(c); el.appendChild(row);
+  });
+  selectCam(names[0], d.cameras[names[0]]);
+}
+function selectCam(n, info) {
+  cam = { name: n, ...info };
+  [...$('cams').querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.textContent === n));
+  refresh();
+}
+
+/* ---- video olaylari ---- */
+const V = $('v');
+attachZoom(V, $('vwrap'));
+V.addEventListener('ended', () => {
+  if (mode === 'sync' || atLive) return;
+  if (segIdx + 1 < segs.length) playAt(segIdx + 1, 0);
+  else if (selDay === todayKey()) goLive();   // gecmisi izlerken canliya yetistik
+});
 V.addEventListener('timeupdate', () => {
-  if (mode === 'live' || segIdx < 0 || !segs.length) return;
+  if (mode === 'sync' || atLive || segIdx < 0 || !segs.length) return;
   const cur = segs[segIdx].t + V.currentTime;
-  $('ts').textContent = fmt(cur);
   $('jogTime').textContent = fmt(cur);
   $('tlCur').style.left = ((cur - span[0]) / (span[1] - span[0]) * 100) + '%';
 });
-V.addEventListener('play',  () => $('btnPlay').textContent = '⏸');
-V.addEventListener('pause', () => $('btnPlay').textContent = '▶');
-document.getElementById('btnPlay').onclick = () => {
+V.addEventListener('play',  () => { if (mode !== 'sync') $('btnPlay').textContent = '⏸'; });
+V.addEventListener('pause', () => { if (mode !== 'sync') $('btnPlay').textContent = '▶'; });
+$('btnPlay').onclick = () => {
   if (mode === 'sync') { const p = SC.length && SC[0].v.paused; SC.forEach(sc => p ? sc.v.play().catch(()=>{}) : sc.v.pause()); }
   else V.paused ? V.play() : V.pause();
 };
-document.getElementById('btnBack').onclick = () => anySeek(curT() - 60);
-document.getElementById('btnFwd').onclick  = () => anySeek(curT() + 60);
-// --- jog wheel: 1 tam tur = 60 sn ince ayar ---
-(() => {
-  const ticks = $('jogTicks');
+$('btnBack').onclick = () => anySeek(curT() - 60);
+$('btnFwd').onclick  = () => anySeek(curT() + 60);
+$('tl').onclick = e => {
+  if (!segs.length && !SC.length) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  anySeek(span[0] + (e.clientX - r.left) / r.width * (span[1] - span[0]));
+};
+
+/* ---- kadranlar: Gun + Zaman ---- */
+function makeDial(svg, opts) {
+  const ticks = svg.querySelector('.ticks');
   for (let a = 0; a < 360; a += 30) {
     const r = (a - 90) * Math.PI / 180;
     const t = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -393,48 +527,75 @@ document.getElementById('btnFwd').onclick  = () => anySeek(curT() + 60);
     t.setAttribute('stroke', '#1e3252'); t.setAttribute('stroke-width', '2');
     ticks.appendChild(t);
   }
-  const jog = $('jog');
-  let active = false, lastA = 0, acc = 0, baseT = 0, wasPlaying = false, rot = 0, lastSeekMs = 0;
-  const ang = e => { const r = jog.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height/2, e.clientX - r.left - r.width/2); };
-  jog.addEventListener('pointerdown', e => {
-    if (mode === 'live' || (mode === 'sync' ? !SC.length : segIdx < 0)) return;
-    active = true; jog.setPointerCapture(e.pointerId);
-    lastA = ang(e); acc = 0; baseT = curT();
-    wasPlaying = mode === 'sync' ? (SC.length && !SC[0].v.paused) : !$('v').paused;
-    mode === 'sync' ? SC.forEach(sc => sc.v.pause()) : $('v').pause();
+  const ring = svg.querySelector('.ring');
+  let active = false, lastA = 0, rot = 0;
+  const ang = e => { const r = svg.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height/2, e.clientX - r.left - r.width/2); };
+  svg.addEventListener('pointerdown', e => {
+    if (mode === 'live') return;
+    if (opts.canStart && !opts.canStart()) return;
+    active = true; svg.setPointerCapture(e.pointerId);
+    lastA = ang(e);
+    if (opts.onStart) opts.onStart();
   });
-  jog.addEventListener('pointermove', e => {
+  svg.addEventListener('pointermove', e => {
     if (!active) return;
     const a = ang(e);
     let d = a - lastA;
     if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
-    lastA = a; acc += d; rot += d;
-    $('jogRing').setAttribute('transform', `rotate(${rot * 180 / Math.PI} 64 64)`);
-    const target = Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5));
-    $('jogTime').textContent = fmt(target);
-    $('tlCur').style.left = ((target - span[0]) / (span[1] - span[0]) * 100) + '%';
-    if (Date.now() - lastSeekMs > 120) { lastSeekMs = Date.now(); anySeek(target); }
+    lastA = a; rot += d;
+    ring.setAttribute('transform', `rotate(${rot * 180 / Math.PI} 64 64)`);
+    opts.onTurn(d);
   });
-  jog.addEventListener('pointerup', () => {
-    if (!active) return;
-    anySeek(Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5)));
-    if (wasPlaying) { mode === 'sync' ? SC.forEach(sc => sc.v.play().catch(()=>{})) : $('v').play().catch(()=>{}); }
-    active = false;
+  svg.addEventListener('pointerup', () => { if (active && opts.onEnd) opts.onEnd(); active = false; });
+}
+
+/* Zaman kadrani: 1 tur = 60sn — saat aninda akar, seek 120ms gazli */
+(() => {
+  let acc = 0, baseT = 0, wasPlaying = false, lastSeekMs = 0;
+  makeDial($('dialTime'), {
+    canStart: () => (mode === 'sync' ? SC.length > 0 : (atLive || segIdx >= 0)),
+    onStart: () => {
+      acc = 0; baseT = curT();
+      wasPlaying = mode === 'sync' ? (SC.length && !SC[0].v.paused) : true;
+      if (mode === 'sync') SC.forEach(sc => sc.v.pause());
+      else if (!atLive) $('v').pause();
+    },
+    onTurn: d => {
+      acc += d;
+      const target = Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5));
+      $('jogTime').textContent = fmt(target);
+      $('tlCur').style.left = ((target - span[0]) / (span[1] - span[0]) * 100) + '%';
+      if (Date.now() - lastSeekMs > 120) { lastSeekMs = Date.now(); anySeek(target); }
+    },
+    onEnd: () => {
+      anySeek(Math.max(span[0], Math.min(baseT + acc / (2 * Math.PI) * 60, span[1] - 0.5)));
+      if (wasPlaying && !atLive) { mode === 'sync' ? SC.forEach(sc => sc.v.play().catch(()=>{})) : $('v').play().catch(()=>{}); }
+    },
   });
 })();
 
-document.getElementById('tl').onclick = e => {
-  if (!segs.length) return;
-  const r = e.currentTarget.getBoundingClientRect();
-  anySeek(span[0] + (e.clientX - r.left) / r.width * (span[1] - span[0]));
+/* ---- ayarlar: faz farki ---- */
+$('setBtn').onclick = () => {
+  const p = $('setPanel');
+  if (p.style.display === 'none') {
+    const l = $('offList'); l.innerHTML = '';
+    allCams.forEach(n => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0';
+      row.innerHTML = `<span style="flex:0 0 80px">${n}</span>` +
+        `<input type="number" step="1" value="${camOff(n)}" data-cam="${n}" style="width:90px;background:#0d1830;border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:5px 8px">` +
+        `<span style="font-size:11px;color:var(--mut)">sn</span>`;
+      l.appendChild(row);
+    });
+    p.style.display = '';
+  } else p.style.display = 'none';
 };
-
-$('mode').onclick = e => {
-  if (e.target.dataset.m) {
-    mode = e.target.dataset.m;
-    [...$('mode').children].forEach(b => b.classList.toggle('on', b === e.target));
-    refresh();
-  }
+$('offSave').onclick = () => {
+  [...$('offList').querySelectorAll('input')].forEach(i => { OFFS[i.dataset.cam] = +i.value || 0; });
+  localStorage.setItem('edgeway_offsets', JSON.stringify(OFFS));
+  $('setPanel').style.display = 'none';
+  setNote('faz farklari kaydedildi');
+  if (selDay) { if (mode === 'sync') syncLoadDay(selDay); else if (!atLive) loadDay(selDay, true); }
 };
 
 (async () => {
