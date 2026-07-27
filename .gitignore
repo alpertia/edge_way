@@ -15,3 +15,4 @@ mediamtx.tar.gz
 raspios.img
 *.img
 *.tar.gz
+.DS_Store
