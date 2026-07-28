@@ -51,4 +51,6 @@ check web/index.html          "goLive"                 "kesintisiz canli-gecmis 
 check scripts/attach_ssd.sh   "EDGEWAY_MAX_STORAGE_GB" "tek komut SSD gecisi"
 check edgeway/recorder/segmenter.py "_newest_age"      "stall nobetcisi (180sn)"
 check edgeway/heartbeat/agent.py "rec_age_s"           "nabizda kayit yasi"
+check edgeway/config.py       "CLIPS_MAX_GB"           "klip tavani ayari"
+check edgeway/recorder/segmenter.py "enforce_clips_retention" "klip retention (yalnizca .up silinir)"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

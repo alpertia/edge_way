@@ -92,4 +92,5 @@ UPLOAD_MODE = env("EDGEWAY_UPLOAD_MODE", "continuous")  # continuous | events | 
 CLIP_PRE_S = int(env("EDGEWAY_CLIP_PRE_S", "10"))
 CLIP_POST_S = int(env("EDGEWAY_CLIP_POST_S", "20"))
 CLIPS_DIR = DATA_DIR / "clips"
+CLIPS_MAX_GB = float(env("EDGEWAY_CLIPS_MAX_GB", "0.5"))
 EVENTS_DIR = DATA_DIR / "events"

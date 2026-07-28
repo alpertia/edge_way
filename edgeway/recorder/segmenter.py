@@ -138,12 +138,55 @@ def enforce_retention() -> None:
                 day_dir.rmdir()
 
 
+def _clips_oldest_first() -> list[Path]:
+    if not config.CLIPS_DIR.exists():
+        return []
+    return sorted(config.CLIPS_DIR.rglob("*.mp4"), key=lambda f: f.stat().st_mtime)
+
+
+def enforce_clips_retention() -> None:
+    """Klip tavani: yalnizca buluta cikmis (.up isaretli) klipler, en eski once."""
+    max_bytes = int(config.CLIPS_MAX_GB * 1_000_000_000) if config.CLIPS_MAX_GB else 0
+    if not max_bytes or not config.CLIPS_DIR.exists():
+        return
+    clips = _clips_oldest_first()
+    total = sum(f.stat().st_size for f in clips)
+    if total <= max_bytes:
+        return
+    deleted = 0
+    skipped = 0
+    for f in clips:
+        if total <= max_bytes:
+            break
+        up = f.with_suffix(f.suffix + ".up")
+        if not up.exists():
+            skipped += 1
+            continue
+        size = f.stat().st_size
+        up.unlink(missing_ok=True)
+        f.unlink(missing_ok=True)
+        total -= size
+        deleted += 1
+    if deleted:
+        print(f"[clips] kapasite: {deleted} eski klip silindi", file=sys.stderr)
+    if total > max_bytes:
+        print(f"[clips] UYARI: limit asili, buluta cikmamis {skipped} klip korundu", file=sys.stderr)
+    for cam_dir in [p for p in config.CLIPS_DIR.iterdir() if p.is_dir()]:
+        for day_dir in [p for p in cam_dir.iterdir() if p.is_dir()]:
+            if not any(day_dir.iterdir()):
+                day_dir.rmdir()
+
+
 def retention_loop() -> None:
     while RUN:
         try:
             enforce_retention()
         except Exception as e:  # retention asla kaydi durdurmasin
             print(f"[retention] hata: {type(e).__name__}: {e}", file=sys.stderr)
+        try:
+            enforce_clips_retention()
+        except Exception as e:
+            print(f"[clips] hata: {type(e).__name__}: {e}", file=sys.stderr)
         for _ in range(300):
             if not RUN:
                 break
