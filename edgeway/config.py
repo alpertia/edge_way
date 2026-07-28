@@ -87,3 +87,9 @@ def live_paths() -> dict[str, str]:
     return out
 
 FFMPEG_EXTRA = env("EDGEWAY_FFMPEG_EXTRA", "")
+
+UPLOAD_MODE = env("EDGEWAY_UPLOAD_MODE", "continuous")  # continuous | events | both
+CLIP_PRE_S = int(env("EDGEWAY_CLIP_PRE_S", "10"))
+CLIP_POST_S = int(env("EDGEWAY_CLIP_POST_S", "20"))
+CLIPS_DIR = DATA_DIR / "clips"
+EVENTS_DIR = DATA_DIR / "events"

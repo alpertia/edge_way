@@ -33,6 +33,27 @@ def s3_key(f: Path) -> str:
     return f"{config.S3_PREFIX}/{rel.as_posix()}"
 
 
+
+
+def pending_clips():
+    """clips/ altindaki yuklenmemis klipler (ayni .up sidecar mekanizmasi)."""
+    if not config.CLIPS_DIR.exists():
+        return []
+    out = []
+    for f in sorted(config.CLIPS_DIR.rglob("*.mp4")):
+        if f.with_suffix(f.suffix + ".up").exists():
+            continue
+        if time.time() - f.stat().st_mtime < 10:
+            continue
+        out.append(f)
+    return out
+
+
+def clip_key(f):
+    cam, day = f.parent.parent.name, f.parent.name
+    return f"{config.S3_PREFIX}/clips/{cam}/{day}/{f.name}"
+
+
 def run_once() -> int:
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
@@ -42,14 +63,20 @@ def run_once() -> int:
         return 1
     s3 = boto3.client("s3", region_name=config.AWS_REGION)
     ok = fail = 0
-    for f in pending_segments():
+    mode = getattr(config, "UPLOAD_MODE", "continuous")
+    targets = []
+    if mode in ("continuous", "both"):
+        targets += [(f, None) for f in pending_segments()]
+    if mode in ("events", "both"):
+        targets += [(f, clip_key(f)) for f in pending_clips()]
+    for f, ckey in targets:
         try:
-            s3.upload_file(str(f), config.S3_BUCKET, s3_key(f),
+            s3.upload_file(str(f), config.S3_BUCKET, ckey if ckey else s3_key(f),
                            ExtraArgs={"ServerSideEncryption": "AES256",
                                       "StorageClass": "STANDARD"})
             f.with_suffix(f.suffix + ".up").touch()
             ok += 1
-        except (BotoCoreError, ClientError, OSError) as e:
+        except (BotoCoreError, ClientError, OSError, ValueError) as e:
             fail += 1
             print(f"[uploader] hata {f.name}: {type(e).__name__}", file=sys.stderr)
             break  # baglanti sorunuysa listeyi ogutme; sonraki turda dene

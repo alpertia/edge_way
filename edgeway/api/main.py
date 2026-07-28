@@ -18,6 +18,8 @@ app = FastAPI(title="EdgeWay Pro2", version="0.2.0")
 
 from edgeway.provision.routes import router as setup_router  # noqa: E402
 app.include_router(setup_router)
+from edgeway.events.routes import router as events_router  # noqa: E402
+app.include_router(events_router)
 
 WEB_DIR = Path(__file__).resolve().parents[2] / "web"
 
