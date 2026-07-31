@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from edgeway import config
+from edgeway.health import engine as health_engine
 
 RUN = True
 KEEP_LAST = 5
@@ -177,6 +178,18 @@ def enforce_clips_retention() -> None:
                 day_dir.rmdir()
 
 
+def health_loop() -> None:
+    while RUN:
+        try:
+            health_engine.persist(health_engine.snapshot())
+        except Exception as e:
+            print(f"[health] hata: {type(e).__name__}: {e}", file=sys.stderr)
+        for _ in range(60):
+            if not RUN:
+                break
+            time.sleep(1)
+
+
 def retention_loop() -> None:
     while RUN:
         try:
@@ -208,6 +221,7 @@ def main() -> None:
 
     threads = [threading.Thread(target=record_loop, args=(c, u), daemon=True) for c, u in cams.items()]
     threads.append(threading.Thread(target=retention_loop, daemon=True))
+    threads.append(threading.Thread(target=health_loop, daemon=True))
     for t in threads:
         t.start()
     while RUN:

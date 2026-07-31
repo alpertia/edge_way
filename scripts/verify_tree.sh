@@ -53,4 +53,8 @@ check edgeway/recorder/segmenter.py "_newest_age"      "stall nobetcisi (180sn)"
 check edgeway/heartbeat/agent.py "rec_age_s"           "nabizda kayit yasi"
 check edgeway/config.py       "CLIPS_MAX_GB"           "klip tavani ayari"
 check edgeway/recorder/segmenter.py "enforce_clips_retention" "klip retention (yalnizca .up silinir)"
+check edgeway/health/engine.py "def snapshot"     "yerel saglik motoru (tek hesap noktasi)"
+check edgeway/health/engine.py "def last24h"      "24s saglik gecmisi ve bosluk ozeti"
+check edgeway/health/engine.py "days\[:2\]"        "rec_age taramasi arsivle buyumez"
+check edgeway/recorder/segmenter.py "health_loop" "saglik gecmisi yaziliyor"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
