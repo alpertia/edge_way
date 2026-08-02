@@ -57,4 +57,5 @@ check edgeway/health/engine.py "def snapshot"     "yerel saglik motoru (tek hesa
 check edgeway/health/engine.py "def last24h"      "24s saglik gecmisi ve bosluk ozeti"
 check edgeway/health/engine.py "days\[:2\]"        "rec_age taramasi arsivle buyumez"
 check edgeway/recorder/segmenter.py "health_loop" "saglik gecmisi yaziliyor"
+check edgeway/health/engine.py "GRACE_S"           "acilis toleransi (deploy sonrasi sahte alarm yok)"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

@@ -26,6 +26,8 @@ TEMP_WARN_C = 75.0
 TEMP_CRIT_C = 82.0
 WATCHED_UNITS = ("edgeway-recorder", "edgeway-api", "mediamtx")
 RANK = {"OK": 0, "WARN": 1, "CRIT": 2}
+GRACE_S = 150          # acilistan sonra ilk segment icin tolerans
+START_TS = time.time()  # modul import ani = servis acilis ani
 
 
 def hw_id() -> str:
@@ -132,7 +134,10 @@ def snapshot() -> dict:
 
     for cam, age in sorted(rec_age.items()):
         if age is None:
-            bump("CRIT", f"{cam} hic kayit yok")
+            if now - START_TS < GRACE_S:
+                bump("WARN", f"{cam} ilk segment bekleniyor")
+            else:
+                bump("CRIT", f"{cam} hic kayit yok")
         elif age > REC_AGE_CRIT_S:
             bump("CRIT", f"{cam} kayit {age}sn once")
         elif age > REC_AGE_WARN_S:
