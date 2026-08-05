@@ -10,7 +10,18 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
-## ACIK OLAY — 1/2 Agu gecesi, 11s50dk kayit boslugu [KAPANMADI]
+## ACIK OLAY — 1/2 Agu gecesi, 11s50dk kayit boslugu [KOK NEDEN BULUNDU — 5 Agu]
+
+KOK NEDEN: korumasiz stat -> daemon thread olumu.
+_newest_age (segmenter) rglob ile listeledigi dosyayi stat ederken retention
+o dosyayi silince FileNotFoundError firliyor; record_loop thread'i oluyor,
+servis "active" gorunmeye devam ediyor. Olen thread stall bekcisini de
+goturuyor, asili ffmpeg'i kimse terminate etmiyor -> sessiz kayit boslugu.
+Logda dort kez dogrulandi: 02/08 09:42 cam22, 02/08 12:32 cam2,
+03/08 01:14 cam1, 05/08 04:08 cam22.
+cam1'in gun donumu imzasi da ayni zincir: 00:00:00'da segment acilamadi,
+beklenen "[recorder] cam1 ffmpeg cikti" satiri YOK cunku kod oraya
+ulasmadan thread oldu — log budanmasindan degil.
 Sistemin ILK KEZ kendi yakaladigi kesinti (onceki uc olayi hep Alper fark etmisti).
 engine.last24h() ciktisi: 01/08 21:21 -> 02/08 09:11, 710 dk, 1427 ornekte 705 CRIT.
 
@@ -36,6 +47,17 @@ cikti:0 stall:0 traceback:0 systemd restart:0 (gece boyunca) — ama bu yokluk K
 cunku log budanmis. Bu turda iki hipotez kuruldu ve ikisi de curudu (thread olumu,
 oksuz ffmpeg); ucuncusu (ratelimit) acik.
 
+DUZELTME (5 Agu):
+- "thread olumu hipotezi curudu" YANLIS. Gerekce "ffmpeg surec sayisi 3,
+  oksuz yok" idi; ana surec yasadigi icin olen thread'in ffmpeg'i zaten
+  mesru cocuk olarak sayilir. Sayim hipotezi curutmuyor, onunla tutarli.
+  Hipotez DOGRUYMUS.
+- Ratelimit hipotezi curudu: pencerede tek "Suppressed" satiri yok, ayrica
+  3,9 satir/sn sinirin (333/sn) seksen kat altinda. Budama sebebi duz hacim:
+  SystemMaxUse=100M, rotate + vacuum satir degil DOSYA siler.
+- "traceback:0 / systemd restart:0" YANLIS. Grep yalniz edgeway-recorder'a
+  bakmis; edgeway-heartbeat'te ayni gece alti traceback ve restart var.
+
 ## Bu sprintte kapanan uc is
 1. KLIP RETENTION TAVANI (9738221)
    Bulgu: retention modulu clips/ dizininin varligindan habersizdi; _total_bytes() yalniz
@@ -60,6 +82,11 @@ oksuz ffmpeg); ucuncusu (ratelimit) acik.
    Cozum: GRACE_S=150, acilis penceresinde "ilk segment bekleniyor" WARN.
    Sure dolunca yine CRIT; BAYAT kayit acilis penceresinde bile CRIT kalir (testle sabit).
 
+4. TOCTOU KORUMASI (5 Agu)
+   agent._rec_ages + segmenter._newest_age / _segments_oldest_first /
+   _total_bytes: stat try/except ile korundu, kaybolan dosya atlanir.
+   Sessiz yutma YOK — beklenmedik istisna hala yukari cikar.
+
 ## SIRADAKI IS: teshis edilebilirlik paketi (uc kalem, tek paket)
 1. Gurultuyu kaynaginda kes — _pipe_masked tekrar eden satirlari bastirsin
    (ayni mesaj 60sn'de bir, "xN kez" ozetiyle). DTS uyarisi -c copy'de beklenen sey.
@@ -71,6 +98,11 @@ oksuz ffmpeg); ucuncusu (ratelimit) acik.
 Once "Suppressed N messages" aramasi yapilacak (ratelimit hipotezi).
 
 ## Sirada (oncelik sirasiyla)
+- threading.excepthook YOK — thread olumu hicbir yere yazilmiyor.
+  systemctl is-active cok thread'li serviste saglik kaniti DEGIL.
+  5 Agu yamasi BILINEN yarisi kapatti, bilinmeyeni degil.
+- _newest_age bos arsivde 0.0 donuyor (bekci korlugu) — hala acik.
+  Bu gece tetiklenmedi cunku KEEP_LAST=5 sayesinde bayat mtime dondu.
 - Teshis edilebilirlik paketi (yukarida)
 - KAYNAK BASINA KOTA: ring kuresel olarak en eskiden siliyor; saglam kamera arizalinin
   gecmisini yiyor (cam1:5 cam2:5 cam22:407). Kanit acisindan ciddi.
@@ -97,6 +129,8 @@ Tasinacaklar: nabiz sozlesmesi (hw_id/site_id/device_id/status/reasons/rec_age_s
 device-token guard, yerel-once saglik deseni, kanit korumali silme (.up kurali),
 kaynak basina kota, acilis toleransi, verify_tree kapisi, idempotent apply_*.py deseni,
 QR/hw_id pairing + relay.
+- threading.excepthook + thread-olumu alarmi (CamMind'da da gecerli;
+  olay gelmemesi kanit degildir, tipki log yoklugu gibi)
 Genel dersler (sozlesmeye girecek): (a) cok kaynakli kayitta kota yoksa saglam kaynak
 arizalinin gecmisini yer; (b) zamana gore klasor yazan her servis klasoru yazmadan once
 garanti altina almali; (c) bir kaynagin log gurultusu digerinin ariza kanitini yok edebilir.
