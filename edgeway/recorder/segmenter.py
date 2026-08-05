@@ -47,7 +47,10 @@ def _newest_age(cam: str) -> float:
     base = config.REC_DIR / cam
     newest = 0.0
     for f in base.rglob("*.mp4"):
-        m = f.stat().st_mtime
+        try:
+            m = f.stat().st_mtime
+        except OSError:
+            continue
         if m > newest:
             newest = m
     return time.time() - newest if newest else 0.0
@@ -84,7 +87,14 @@ def record_loop(cam: str, url: str) -> None:
 def _segments_oldest_first() -> list[Path]:
     if not config.REC_DIR.exists():
         return []
-    return sorted(config.REC_DIR.rglob("*.mp4"), key=lambda f: f.stat().st_mtime)
+    pairs = []
+    for f in config.REC_DIR.rglob("*.mp4"):
+        try:
+            pairs.append((f.stat().st_mtime, f))
+        except OSError:
+            continue
+    pairs.sort(key=lambda p: p[0])
+    return [f for _, f in pairs]
 
 
 def _disk_pct() -> float:
@@ -93,7 +103,13 @@ def _disk_pct() -> float:
 
 
 def _total_bytes() -> int:
-    return sum(f.stat().st_size for f in config.REC_DIR.rglob("*.mp4"))
+    total = 0
+    for f in config.REC_DIR.rglob("*.mp4"):
+        try:
+            total += f.stat().st_size
+        except OSError:
+            continue
+    return total
 
 
 def _delete_segment(f: Path) -> None:

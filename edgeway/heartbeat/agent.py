@@ -56,7 +56,10 @@ def _rec_ages() -> dict:
         newest = 0.0
         if base and base.exists():
             for f in base.rglob("*.mp4"):
-                m = f.stat().st_mtime
+                try:
+                    m = f.stat().st_mtime
+                except (FileNotFoundError, OSError):
+                    continue
                 if m > newest:
                     newest = m
         out[cam] = int(time.time() - newest) if newest else None
