@@ -10,6 +10,23 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
+## GUNCEL DURUM — 22 Agu 01:35
+Kayitli kameralar: cam4, cam6, cam19 (SpaceMind icin; Orin relay uzeri).
+Eski cam1/cam2/cam22 listeden CIKARILDI — bkz. kaynak basina kota vakasi.
+status OK, rec_age 0/2/3sn, disk %69.5, temp 58C, load1 1.00, uc servis active.
+HEAD = a473314, 53 invariant yesil.
+
+### RPi3B+ KAPASITE OLCUMU (21 Agu) — sayisal
+Ayni kutu, ayni kosullar, yalniz kamera sayisi degisti (-c copy, transcode YOK):
+  3 kamera: load1 ~1.0-1.5, sicaklik 62C, saatlik stall/cikis sayaci = 0
+  6 kamera: load1 8.0 (load15 6.9), sicaklik 67C, CPU %97-100,
+            SAATLIK STALL/CIKIS SAYACI = 19
+Uce donuldugunde sayac tekrar 0. Sinir dort cekirdekte alti kamera.
+
+Bu olcum ACIK KARAR 1'i (HDMI canli grid) buyuk olcude cevapliyor:
+kayitta bile alti kamera siniri zorluyorsa, ustune decode + compositing
+HIC kaldirmaz. RPi4 karari guclendi.
+
 ## ACIK OLAY — 1/2 Agu gecesi, 11s50dk kayit boslugu [KOK NEDEN BULUNDU — 5 Agu]
 
 KOK NEDEN: korumasiz stat -> daemon thread olumu.
@@ -87,6 +104,27 @@ DUZELTME (5 Agu):
    _total_bytes: stat try/except ile korundu, kaybolan dosya atlanir.
    Sessiz yutma YOK — beklenmedik istisna hala yukari cikar.
 
+5. TOCTOU YAMASI DOGRULANDI (16 gun saha kaniti)
+   5 Agu - 21 Agu arasi: sifir thread olumu, sifir traceback, sifir restart.
+   Yamadan onceki dort gunde dort kez olmustu. Recorder PID degismedi.
+   Gun donumu artik kayip uretmiyor: ffmpeg'ler 00:00'da yeniden basliyor,
+   thread yasiyor, backoff calisiyor.
+
+6. HEARTBEAT_CONTRACT v1 + CIHAZ TARAFI BAGLAMA (75a8515, a473314)
+   docs/HEARTBEAT_CONTRACT.md yazildi (ONCE SOZLESME kurali).
+   Bulgu: /api/health ucu HIC YOKTU (404). Mevcut /health kendi hesabini
+   yapiyor ve sabit "status":"ok" donuyordu — portal ne kadar bozuk olursa
+   olsun hep OK derdi. agent._rec_ages() de kendi taramasini yapiyordu;
+   13fb61f'in "tek hesap noktasi" karari HICBIR YERE uygulanmamisti.
+   Cozum: /api/health eklendi (auth'lu, snapshot() doner), /health motora
+   baglandi, _rec_ages KALDIRILDI.
+   Sozlesme adimlari: 1-4 KAPANDI, 5-7 ACIK.
+
+7. _newest_age KORLUGU KAPANDI (a473314)
+   Bos arsivde 0.0 yerine None doner; stall bekcisi artik bos arsivde de
+   tetikleniyor. 1/2 Agu'da tetiklenmemisti cunku KEEP_LAST=5 sayesinde
+   bayat mtime donuyordu — korluk gercekti ama o gecenin sebebi degildi.
+
 ## SIRADAKI IS: teshis edilebilirlik paketi (uc kalem, tek paket)
 1. Gurultuyu kaynaginda kes — _pipe_masked tekrar eden satirlari bastirsin
    (ayni mesaj 60sn'de bir, "xN kez" ozetiyle). DTS uyarisi -c copy'de beklenen sey.
@@ -98,6 +136,18 @@ DUZELTME (5 Agu):
 Once "Suppressed N messages" aramasi yapilacak (ratelimit hipotezi).
 
 ## Sirada (oncelik sirasiyla)
+- CONTRACT adim 5: control-plane device-token guard + alici uc (CooksMind).
+  Cihazda EDGEWAY_CLOUD_URL hala BOS — nabiz hicbir yere gitmiyor.
+- CONTRACT adim 7: bekci (nabiz kesilirse TalkMind/WhatsApp uyarisi).
+- threading.excepthook YOK — thread olumu hicbir yere yazilmiyor.
+  systemctl is-active cok thread'li serviste saglik kaniti DEGIL.
+  5 Agu yamasi BILINEN yarisi kapatti, bilinmeyeni degil.
+- PORTAL SECIM KUSURU: ayni kamera birden fazla secilebiliyor, "max 4"
+  uygulanmiyor. 5 Agu'da 12-13 dosemeye cikildi, sayfa kilitlendi.
+- MEDIAMTX-ENV KOPUKLUGU: kamera degisince mediamtx.yml eski kaldi.
+  Kayit calisiyor (ffmpeg Orin'e dogrudan bagli) ama CANLI IZLEME SIYAH
+  (portal canli akisi rpi'nin kendi MediaMTX'inden cekiyor, yol tanimli degil).
+  Kaynak menusu yazilirken zincir TEK olmali: env + mediamtx yolu + iki servis.
 - threading.excepthook YOK — thread olumu hicbir yere yazilmiyor.
   systemctl is-active cok thread'li serviste saglik kaniti DEGIL.
   5 Agu yamasi BILINEN yarisi kapatti, bilinmeyeni degil.
@@ -106,6 +156,13 @@ Once "Suppressed N messages" aramasi yapilacak (ratelimit hipotezi).
 - Teshis edilebilirlik paketi (yukarida)
 - KAYNAK BASINA KOTA: ring kuresel olarak en eskiden siliyor; saglam kamera arizalinin
   gecmisini yiyor (cam1:5 cam2:5 cam22:407). Kanit acisindan ciddi.
+  YENI VAKA (21 Agu): ayni kusur baska bicimde calisti. Kamera listesinden
+  cikarilan uc kaynagin (cam1/cam2/cam22) 1.5G gecmisi DAKIKALAR ICINDE silindi —
+  cikarilinca arsivin en eskisi haline geldiler, ring sirayla hepsini yedi.
+  RETENTION_DAYS=1 beklenmedi. Ev laboratuvari oldugu icin kayip onemsizdi;
+  sahada bir kamera GECICI cikarilsa ayni sey olurdu.
+  SONUC: kota, Girisler/Cikislar menusunden ONCE gelmeli. Menu kamera
+  degistirmeyi kolaylastirirsa bu kayip da kolaylasir.
 - /api/health ucu + portal ust seridi (motor hazir, sadece okunacak)
 - BULUT NABIZ + BEKCI + TalkMind uyarisi — EKSIK HALKA. Motor bu geceyi kaydetti ama
   soyleyecek kimsesi yoktu. Kurulu olsaydi 21:26'da telefon calardi.
@@ -118,6 +175,20 @@ Once "Suppressed N messages" aramasi yapilacak (ratelimit hipotezi).
 - Relay + pairing (uzaktan erisim) — asagida
 - CAMM-93 handoff'unun TAM METNI okunacak (elde sadece iki uc var, ortasi kesik)
 - Portal cizelgesinde olay isaretleri, silme+audit, iOS, QR/AP cihaz tarafi
+
+## DURDURULAN: rpimon-push.service (21 Agu)
+CamMind'dan kalma /home/pi/cam_mind/scripts/rpimon-push.sh rpi'de kosuyordu,
+Orin Supabase'e metrik atiyordu. stop + disable edildi. Iki gerekce:
+  (a) YANLIS VERI: dvr_reachable hesabi len(ready) > 0. Script Orin icin
+      yazilmis, orada yollar surekli besleniyor. rpi'de MediaMTX yollari
+      ON-DEMAND; izleyen yokken hicbiri ready degil. Sonuc: dvr_reachable
+      daima false, down_cams daima alti yol — uc kamera kaydederken.
+      Panelde "Kameralar (0)", "tracker idle" (rpi'de runner zaten yok).
+      Ters yonde sessiz ariza: gercek kesinti de fark edilmezdi, hep kirmiziydi.
+  (b) YUK: PUSH_INTERVAL=3 — uc saniyede bir bash + iki curl + iki python3.
+Script silinmedi, yalniz durduruldu (CamMind Orin/OPi5 tarafi ayrica bakilacak).
+CamMind paneli artik bu cihazi "offline" gosteriyor — BEKLENEN. Dogru cozum
+CONTRACT adim 5: EdgeWay kendi nabzini control-plane'e gonderecek.
 
 ## Ekosisteme tasinacak kazanimlar (2 Agu tartismasi)
 Karar: ONCE SOZLESME, SONRA KOD. docs/HEARTBEAT_CONTRACT.md yazilacak; motor bir-iki
@@ -144,6 +215,11 @@ garanti altina almali; (c) bir kaynagin log gurultusu digerinin ariza kanitini y
    apply_*.py capa tekil degilse HIC DEGISIKLIK YAPMADAN durur (kasten bozulmus agacta sinandi).
 5. YENI: log yoklugu kanit degil. Grep deseni kodun GERCEK kelimesiyle yazilir
    ("cikti", "stall"), tahminle degil — bu turda bir kez yanlis teshise yol acti.
+6. YENI (22 Agu): grep BIRIM kapsami da yanlis olabilir. 2 Agu'da "traceback:0"
+   sonucu yalniz edgeway-recorder'a bakildigi icin cikmisti; heartbeat'te alti
+   traceback vardi. Kapsam once dogrulanir, sonra sayilir.
+7. YENI: deploy komutu KOSARKEN sonraki komut yapistirilmaz — stdin'e gidiyor,
+   dogrulama hic calismamis oluyor (bu turda uc kez oldu).
 
 ## Degismeyen omurga
 Ring 1.5GB (~70dk/3kam) + S3 arsiv (edgeway-antsoft-site-002, eu-central-1, lifecycle);
