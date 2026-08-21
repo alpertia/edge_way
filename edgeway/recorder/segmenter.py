@@ -53,7 +53,9 @@ def _newest_age(cam: str) -> float:
             continue
         if m > newest:
             newest = m
-    return time.time() - newest if newest else 0.0
+    # CONTRACT-v1 §3: bos arsivde None. Eskiden 0.0 donuyordu ve
+    # 0.0 > 180 asla dogru olmadigi icin stall bekcisi KOR kaliyordu.
+    return time.time() - newest if newest else None
 
 
 def record_loop(cam: str, url: str) -> None:
@@ -69,7 +71,8 @@ def record_loop(cam: str, url: str) -> None:
             (config.REC_DIR / cam / datetime.now().strftime("%Y%m%d")).mkdir(parents=True, exist_ok=True)
             if time.time() - last_check >= 30:
                 last_check = time.time()
-                if time.time() - t0 > 180 and _newest_age(cam) > 180:
+                _age = _newest_age(cam)
+                if time.time() - t0 > 180 and (_age is None or _age > 180):
                     print(f"[recorder] {cam} 180sn segment uretmedi — ffmpeg kesiliyor (stall)", file=sys.stderr)
                     proc.terminate()
         if proc.poll() is None:

@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from edgeway import config
+from edgeway.health import engine as health_engine  # CONTRACT-v1
 
 app = FastAPI(title="EdgeWay Pro2", version="0.2.0")
 
@@ -33,17 +34,27 @@ def auth(authorization: str | None = Header(default=None)) -> None:
 
 @app.get("/health")
 def health() -> dict:
-    disk = shutil.disk_usage(config.DATA_DIR) if config.DATA_DIR.exists() else None
-    temp = _cpu_temp()
+    """Sade canlilik ucu. Durum HESAPLANMAZ, motordan okunur (CONTRACT-v1 §2)."""
+    snap = health_engine.snapshot()
     return {
-        "status": "ok",
-        "site": config.SITE_ID,
-        "device": config.DEVICE_ID,
-        "ts": int(time.time()),
-        "temp_c": temp,
-        "disk_used_pct": round(disk.used / disk.total * 100, 1) if disk else None,
+        "status": snap["status"],
+        "site": snap["site_id"],
+        "device": snap["device_id"],
+        "ts": snap["ts"],
+        "temp_c": snap["temp_c"],
+        "disk_used_pct": snap["disk_used_pct"],
         "cameras": list(config.cameras()),
     }
+
+
+@app.get("/api/health", dependencies=[Depends(auth)])
+def api_health() -> dict:
+    """Tam saglik tablosu — TEK HESAP NOKTASI (CONTRACT-v1 §2).
+
+    Portal ust seridi ve bulut nabzi ayni ciktiyi okur.
+    Burada hicbir esik yeniden degerlendirilmez.
+    """
+    return health_engine.snapshot()
 
 
 @app.get("/api/cameras", dependencies=[Depends(auth)])
