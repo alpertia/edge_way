@@ -265,11 +265,14 @@ function syncTick(sc, t) {
     if (Math.abs(sc.v.currentTime - exp) > 0.8) sc.v.currentTime = exp;
   } else syncSeekToCam(sc, t);
 }
+let syncGen = 0;   /* PORTAL-FIX-1: mukerrer doseme yarisi */
 async function syncLoadDay(day) {
+  const myGen = ++syncGen;
   const grid = $('grid'); grid.innerHTML = ''; SC = [];
   const chosen = [...selCams].slice(0, SYNC_LIMIT);
   for (const name of chosen) {
     const list = await mergedSegs(name, day);
+    if (myGen !== syncGen) return;   /* daha yeni bir yukleme basladi */
     const ss = list.map(s => ({ ...s, t: nameT(s.name) + camOff(name) })).sort((a,b) => a.t - b.t);
     ss.forEach((s,i) => { s.dur = Math.min(60, (ss[i+1] ? ss[i+1].t - s.t : 60)) || 60; });
     const wrap = document.createElement('div');
@@ -317,6 +320,7 @@ function liveEdgeT() { const d = new Date(); return d.getHours()*3600 + d.getMin
 function goLive() {
   atLive = true; segIdx = -1;
   $('liveBadge').style.display = '';
+  updateModePill();   /* PORTAL-FIX-1 */
   $('btnLive').classList.add('on');
   play(`http://${location.hostname}:8888/${cam.live_path}/index.m3u8`, true);
   startLiveTick();
@@ -325,6 +329,7 @@ function exitLiveState() {
   atLive = false;
   clearInterval(liveTimer); liveTimer = null;
   $('liveBadge').style.display = 'none';
+  updateModePill();   /* PORTAL-FIX-1 */
   $('btnLive').classList.remove('on');
   if (hls) { hls.destroy(); hls = null; }
 }
@@ -438,6 +443,7 @@ async function refresh() {
   $('btnLive').style.display = sync ? 'none' : '';
   $('multiBtn').style.display = (allCams.length > 1) ? '' : 'none';
   $('multiBtn').classList.toggle('on', sync);
+  updateModePill();   /* PORTAL-FIX-1 */
   [...document.querySelectorAll('.camChk')].forEach(c => c.style.display = sync ? '' : 'none');
   let days = sync ? await allDays() : await camDays(cam.name);
   if (!sync && !days.includes(todayKey())) days = days.concat([todayKey()]);
@@ -453,6 +459,28 @@ $('btnLive').onclick = () => {
   if (selDay !== todayKey()) pickDay(todayKey());
   else if (!atLive) goLive();
 };
+
+/* PORTAL-FIX-1: CANLI dugmesi seridin basina + her modda gorunen mod etiketi.
+   liveBadge #vwrap icinde kaldigi icin grid modunda gorunmuyordu. */
+(function () {
+  const bar = $('ctrls'), btn = $('btnLive');
+  if (!bar || !btn) return;
+  bar.insertBefore(btn, bar.firstChild);
+  const pill = document.createElement('div');
+  pill.id = 'modePill';
+  pill.style.cssText = 'flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.4px;' +
+    'padding:4px 9px;border-radius:999px;white-space:nowrap';
+  bar.insertBefore(pill, btn.nextSibling);
+})();
+
+function updateModePill() {
+  const p = $('modePill');
+  if (!p) return;
+  const canli = (mode !== 'sync') && atLive;
+  p.textContent = canli ? 'CANLI' : 'GECMIS';
+  p.style.background = canli ? 'rgba(220,38,38,.92)' : 'rgba(30,50,82,.92)';
+  p.style.color = canli ? '#fff' : '#8fa3bd';
+}
 
 /* ---- kameralar ---- */
 async function loadCams() {
