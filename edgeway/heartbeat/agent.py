@@ -29,25 +29,19 @@ def cpu_temp() -> float | None:
 
 
 def metrics() -> dict:
-    load1 = os.getloadavg()[0]
-    disk = shutil.disk_usage(config.DATA_DIR) if config.DATA_DIR.exists() else None
-    mem_free = mem_total = 0
-    for line in open("/proc/meminfo"):
-        if line.startswith("MemTotal"):
-            mem_total = int(line.split()[1])
-        elif line.startswith("MemAvailable"):
-            mem_free = int(line.split()[1])
-    return {
-        "site_id": config.SITE_ID,
-        "device_id": config.DEVICE_ID,
-        "ts": int(time.time()),
-        "temp_c": cpu_temp(),
-        "load1": round(load1, 2),
-        "mem_used_pct": round((1 - mem_free / mem_total) * 100, 1) if mem_total else None,
-        "disk_used_pct": round(disk.used / disk.total * 100, 1) if disk else None,
-        "cameras": list(config.cameras()),
-        "rec_age_s": _snap_rec_ages(),  # CONTRACT-v1 §2
-    }
+    """CONTRACT-v1 §3 tam govde — motorun ciktisi OLDUGU GIBI gonderilir.
+
+    Eski hali sozlesme semasini degil kendi semasini uretiyordu: hw_id ve
+    status yoktu, alici 400 donuyordu. Ayrica kendi cpu_temp/meminfo/
+    disk_usage hesabini yapiyordu — §2'nin yasakladigi ikinci hesap noktasi.
+
+    Buraya ALAN EKLENMEZ. Yeni alan gerekiyorsa engine.snapshot() icine
+    eklenir; portal, /api/health ve bulut ayni anda gorur.
+    """
+    snap = health_engine.snapshot()
+    snap["product"] = "edgeway"
+    snap["cameras"] = list(config.cameras())
+    return snap
 
 
 def _snap_rec_ages() -> dict:
@@ -77,6 +71,16 @@ def push(payload: dict) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return 200 <= r.status < 300
+    except urllib.error.HTTPError as e:
+        # Durum kodu OLMADAN teshis edilemiyordu (22 Agu: 400 mu 401 mi 404 mu
+        # belli degildi, tek satir "HTTPError" yaziyordu).
+        body = ""
+        try:
+            body = e.read().decode()[:200]
+        except Exception:
+            pass
+        print(f"[heartbeat] push hatasi: HTTP {e.code} {body}", file=sys.stderr)
+        return False
     except Exception as e:
         print(f"[heartbeat] push hatasi: {type(e).__name__}", file=sys.stderr)
         return False
@@ -96,9 +100,13 @@ def thermal_action(temp: float | None) -> None:
 
 def main() -> None:
     while True:
-        m = metrics()
-        thermal_action(m["temp_c"])
-        push(m)
+        try:
+            m = metrics()
+            thermal_action(m.get("temp_c"))
+            push(m)
+        except Exception as e:
+            # §5: nabiz kesilebilir, DONGU KIRILMAZ. Cihaz kaydetmeye devam eder.
+            print(f"[heartbeat] dongu hatasi: {type(e).__name__}", file=sys.stderr)
         time.sleep(config.HEARTBEAT_SECONDS)
 
 
