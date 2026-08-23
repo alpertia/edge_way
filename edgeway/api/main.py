@@ -3,12 +3,15 @@ Calistir: uvicorn edgeway.api.main:app --host 0.0.0.0 --port 8080
 """
 from __future__ import annotations
 
+import hashlib  # LOGIN-v1
+import hmac  # LOGIN-v1
+import os  # LOGIN-v1
 import shutil
 import subprocess
 import time
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request  # LOGIN-v1
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -30,6 +33,35 @@ def auth(authorization: str | None = Header(default=None)) -> None:
         return  # dev modu
     if authorization != f"Bearer {config.API_TOKEN}":
         raise HTTPException(status_code=401, detail="unauthorized")
+
+
+@app.post("/api/login")
+async def api_login(req: Request) -> dict:
+    """LOGIN-v1 — kullanici adi + sifre karsiliginda API token.
+
+    Duz sifre cihazda SAKLANMAZ; .env'de yalnizca sha256 ozeti var.
+    Yanlis denemede 1sn beklenir (kaba kuvvet yavaslatma).
+    Kullanici adi ve sifre hatasi AYNI cevabi alir.
+    """
+    want_u = os.getenv("EDGEWAY_UI_USER", "")
+    want_h = os.getenv("EDGEWAY_UI_PASS_SHA256", "")
+    if not want_u or not want_h:
+        raise HTTPException(status_code=503, detail="giris yapilandirilmamis")
+
+    try:
+        body = await req.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="gecersiz istek")
+
+    u = str(body.get("user", ""))
+    p = str(body.get("pass", ""))
+    ok_u = hmac.compare_digest(u, want_u)
+    ok_p = hmac.compare_digest(hashlib.sha256(p.encode()).hexdigest(), want_h)
+    if not (ok_u and ok_p):
+        time.sleep(1)
+        raise HTTPException(status_code=401, detail="kullanici adi veya sifre hatali")
+
+    return {"token": config.API_TOKEN, "site": config.SITE_ID, "device": config.DEVICE_ID}
 
 
 @app.get("/health")
