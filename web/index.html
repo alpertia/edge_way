@@ -318,6 +318,10 @@ async function syncLoadDay(day) {
 function todayKey() { const d = new Date(); return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); }
 function liveEdgeT() { const d = new Date(); return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds(); }
 function goLive() {
+  /* PORTAL-FIX-3: grid modunda canli YOK. Mod kontrolu olmadigi icin
+     cizelge canli kenara gelince burasi grid'de de tetikleniyor, liveTimer
+     ile grid oynaticisi ayni alana yazip titresim uretiyordu. */
+  if (mode === 'sync') return;
   atLive = true; segIdx = -1;
   $('liveBadge').style.display = '';
   updateModePill();   /* PORTAL-FIX-1 */
@@ -440,11 +444,12 @@ async function refresh() {
   $('ctrls').style.display = 'flex';
   $('jogWrap').style.display = 'flex';
   $('recpanel').style.display = '';
-  $('btnLive').style.display = sync ? 'none' : '';
+  $('btnLive').style.display = '';   /* PORTAL-FIX-3: canliya donus her modda */
   $('multiBtn').style.display = (allCams.length > 1) ? '' : 'none';
   $('multiBtn').classList.toggle('on', sync);
   updateModePill();   /* PORTAL-FIX-1 */
-  [...document.querySelectorAll('.camChk')].forEach(c => c.style.display = sync ? '' : 'none');
+  /* PORTAL-FIX-3: secim her modda acik. */
+  [...document.querySelectorAll('.camChk')].forEach(c => c.style.display = '');
   let days = sync ? await allDays() : await camDays(cam.name);
   if (!sync && !days.includes(todayKey())) days = days.concat([todayKey()]);
   availDays = days;
@@ -455,31 +460,68 @@ async function refresh() {
 }
 $('multiBtn').onclick = () => { pendingDay = selDay; mode = (mode === 'sync') ? 'watch' : 'sync'; refresh(); };
 $('btnLive').onclick = () => {
-  if (mode === 'sync') { mode = 'watch'; pendingDay = todayKey(); refresh(); return; }
+  /* PORTAL-FIX-3: grid'den basilinca tek kamera moduna gecip DOGRUDAN
+     canliya baglanir. Eskiden yalnizca bugune gidiyordu, canli icin
+     ikinci basis gerekiyordu. */
+  if (mode === 'sync') {
+    mode = 'watch'; pendingDay = todayKey();
+    refresh().then(() => { if (!atLive) goLive(); });
+    return;
+  }
   if (selDay !== todayKey()) pickDay(todayKey());
   else if (!atLive) goLive();
 };
 
-/* PORTAL-FIX-1: CANLI dugmesi seridin basina + her modda gorunen mod etiketi.
-   liveBadge #vwrap icinde kaldigi icin grid modunda gorunmuyordu. */
+/* PORTAL-FIX-2: yerlesim ayrimi.
+   - CANLI gostergesi TEK: liveBadge. Dun eklenen modePill KALDIRILDI
+     (ekranda uc ayri "CANLI" olusmustu).
+   - liveBadge #vwrap icindeydi, grid modunda gorunmuyordu; artik ikisini
+     de kapsayan #stage icinde, her iki modda gorunur.
+   - Kamera/gorunum kontrolleri (⊞ ⚙) SOL panele tasindi.
+   - setPanel sayfanin en altindaydi (kadranin altinda), dugmeye basinca
+     ekranda bir sey degismemis gibi gorunuyordu; artik dugmenin altinda.
+   - Oynatma seridinde YALNIZCA o videoyla ilgili kontroller kaldi. */
 (function () {
   const bar = $('ctrls'), btn = $('btnLive');
-  if (!bar || !btn) return;
-  bar.insertBefore(btn, bar.firstChild);
-  const pill = document.createElement('div');
-  pill.id = 'modePill';
-  pill.style.cssText = 'flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.4px;' +
-    'padding:4px 9px;border-radius:999px;white-space:nowrap';
-  bar.insertBefore(pill, btn.nextSibling);
+  if (bar && btn) bar.insertBefore(btn, bar.firstChild);
+
+  const stale = document.getElementById('modePill');
+  if (stale) stale.remove();
+
+  const vwrap = $('vwrap'), grid = $('grid'), badge = $('liveBadge');
+  if (vwrap && grid && badge && !document.getElementById('stage')) {
+    const stage = document.createElement('div');
+    stage.id = 'stage';
+    stage.style.position = 'relative';
+    vwrap.parentNode.insertBefore(stage, vwrap);
+    stage.appendChild(vwrap);
+    stage.appendChild(grid);
+    stage.appendChild(badge);
+    badge.style.zIndex = '5';
+  }
+
+  const cams = $('cams');
+  const camPanel = cams && cams.parentElement;
+  if (camPanel) {
+    const mb = $('multiBtn'), sb = $('setBtn'), sp = $('setPanel');
+    if (mb || sb) {
+      const tools = document.createElement('div');
+      tools.className = 'bar';
+      tools.id = 'camTools';
+      tools.style.marginTop = '8px';
+      if (mb) tools.appendChild(mb);
+      if (sb) tools.appendChild(sb);
+      camPanel.appendChild(tools);
+    }
+    if (sp) { sp.style.marginTop = '10px'; camPanel.appendChild(sp); }
+  }
 })();
 
+/* Tek gosterge. Cagri yerleri degismedi: goLive / leaveLive / refresh. */
 function updateModePill() {
-  const p = $('modePill');
-  if (!p) return;
-  const canli = (mode !== 'sync') && atLive;
-  p.textContent = canli ? 'CANLI' : 'GECMIS';
-  p.style.background = canli ? 'rgba(220,38,38,.92)' : 'rgba(30,50,82,.92)';
-  p.style.color = canli ? '#fff' : '#8fa3bd';
+  const b = $('liveBadge');
+  if (!b) return;
+  b.style.display = (mode !== 'sync' && atLive) ? '' : 'none';
 }
 
 /* ---- kameralar ---- */
@@ -496,7 +538,7 @@ async function loadCams() {
     b.textContent = n; b.style.flex = '1'; b.onclick = () => selectCam(n, d.cameras[n]);
     const c = document.createElement('input');
     c.type = 'checkbox'; c.className = 'camChk'; c.dataset.cam = n;
-    c.style.display = 'none';
+    c.style.display = '';   /* PORTAL-FIX-3 */
     c.checked = ix < 2;
     if (c.checked) selCams.add(n);
     c.onchange = () => {
