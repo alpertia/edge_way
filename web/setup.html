@@ -150,7 +150,7 @@ async function apply() {
       alert_phone:$('phone').value.trim(), alert_email:$('email').value.trim(),
     });
     msg('m3', true, 'Kurulum tamam ✓ — birkaç saniye içinde ana sayfaya yönlendirileceksin');
-    setTimeout(()=>location.href='/', 6000);
+    setTimeout(()=>location.href='/demo', 6000);
   } catch(e){ $('applyBtn').disabled=false; msg('m3', false, e.message); }
 }
 </script>

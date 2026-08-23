@@ -188,7 +188,14 @@ def api_storage() -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
+    """LANDING-v1: kok artik TANITIM sayfasi."""
     return (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/demo", response_class=HTMLResponse)
+def demo() -> str:
+    """LANDING-v1: portal. Giris ekrani portalin kendi icinde."""
+    return (WEB_DIR / "demo.html").read_text(encoding="utf-8")
 
 
 if (WEB_DIR / "static").exists():
