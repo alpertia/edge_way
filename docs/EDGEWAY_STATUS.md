@@ -10,6 +10,18 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
+## GUNCEL DURUM — 23 Agu 09:20
+Kayitli kameralar: cam1, cam23, cam19, cam20 (Orin relay uzeri, dorde cikildi).
+status OK, dordu de taze, disk %70, temp 60C, load1 ~2.2, uc servis active.
+NABIZ ARTIK BULUTA GIDIYOR (CONTRACT adim 5-7 kapandi).
+PORTAL INTERNETTEN ERISILEBILIR: https://edgeway.ant-soft.uk (giris korumali).
+HEAD = 75a146c.
+
+Adresler:
+  edgeway.ant-soft.uk       -> cihaz portali (cloudflared, localhost:8080)
+  edgeway-live.ant-soft.uk  -> HLS canli akis (localhost:8888)
+  100.80.46.1:8080          -> Tailscale (yerel, degismedi)
+
 ## GUNCEL DURUM — 22 Agu 01:35
 Kayitli kameralar: cam4, cam6, cam19 (SpaceMind icin; Orin relay uzeri).
 Eski cam1/cam2/cam22 listeden CIKARILDI — bkz. kaynak basina kota vakasi.
@@ -125,6 +137,58 @@ DUZELTME (5 Agu):
    tetikleniyor. 1/2 Agu'da tetiklenmemisti cunku KEEP_LAST=5 sayesinde
    bayat mtime donuyordu — korluk gercekti ama o gecenin sebebi degildi.
 
+8. CONTRACT ADIM 5-7 KAPANDI — EKSIK HALKA BAGLANDI (22 Agu)
+   Motor 1/2 Agu gecesini kaydetmisti ama soyleyecek kimsesi yoktu. Artik var.
+   Zincir: engine.snapshot() -> /api/health -> device-token guard ->
+   device_health -> v_device_health -> OPi5 timer'in tetikledigi
+   /api/cron/health-check -> service_health_incidents + TalkMind alarmi.
+
+   cooks_mind tarafi:
+     supabase/migrations/20260822_device_health.sql
+       device_tokens (hw_id, token_hash) — token CIHAZ BASINA, paylasilan
+       tek sir DEGIL. Bilinmeyen cihaz / pasif cihaz / yanlis token AYNI 401.
+       device_health (hw_id PK) + v_device_health (stale 90sn / offline 300sn).
+       Tazelik SUNUCU saatinden (updated_at) hesaplanir — cihaz saati kayabilir.
+     /api/cooksmind/v1/device/health  — POST alici
+     /api/health/device-crit          — "CRIT diyen var mi" -> 503
+     /api/health/devices              — panel veri ucu
+     registry.ts: edgeway (db_freshness) + edgeway_status (healthz_url)
+       IKI AYRI ARIZA: nabiz gelmiyor / nabiz geliyor ama cihaz CRIT diyor.
+       db_freshness ikincisini YAKALAYAMAZ (updated_at taze kalir).
+     settings/edge sayfasina DeviceHealthPanel — CamMind ajan modelinden AYRI.
+       Baglanti kopuksa metrikler soluk + uyari: donmus deger CANLI sanilmasin.
+
+   edge_way tarafi (3955e73, a473314):
+     /api/health ucu eklendi, /health motora baglandi (sabit "ok" kalkti),
+     agent._rec_ages KALDIRILDI, _newest_age bos arsivde None.
+
+9. BEKCI ILK GERCEK OLAYINDA CALISTI (22 Agu 18:45)
+   Kurulumundan 20 dakika sonra "EdgeWay durum DOWN / HTTP 503" Telegram'a dustu.
+   Yalanci alarm DEGILDI: cihaz cam2/cam6 icin CRIT diyordu, oysa o kameralar
+   listeden cikarilmisti. Sebep: .env degistirilirken edgeway-heartbeat
+   RESTART EDILMEMISTI — ajan bayat config tasiyordu.
+   Bekci olmasa fark edilmezdi. Bkz. surec kurali 8.
+
+10. PORTAL BASTAN YAZILDI (75a146c)
+   Bes ayri yama ust uste celiskiye dustu (biri revert edildi). Sorun tek tek
+   hatalar degil MODELDI:
+     - IKI secim: ad dugmesi (tek kamera) + kutu (senkron kumesi), habersiz
+     - IKI oynatici: #v ve SC[] — canli YALNIZCA #v'de yaziliydi
+     - IKI zamanlayici: liveTimer + timeupdate, ayni alana yazip titretiyordu
+     - Bayat async: pickDay'in .then()'i mod degistikten SONRA goLive() cagiriyordu
+     - Takma ad: segs = withSegs[0].segs
+   Yeni model: TEK secim kumesi (1 secili = tam ekran, 2-4 = izgara),
+   TEK doseme tipi (canli her ikisinde de ayni yoldan — ayri ozellik degil),
+   TEK surucu (500ms tick), her yuklemede GEN sayaci.
+   20 verify_tree capasinin hepsi korundu (davranis adlari, uygulama degil).
+
+11. TUNEL + GIRIS (75a146c)
+   cloudflared 2026.8.2, tunnel id 61cdd649-...
+   /api/login: kullanici + sifre -> API token. Duz sifre SAKLANMAZ,
+   .env'de yalnizca sha256 ozeti (EDGEWAY_UI_USER / EDGEWAY_UI_PASS_SHA256).
+   Sabit sureli karsilastirma, yanlis denemede 1sn bekleme.
+   EDGEWAY_API_TOKEN artik ZORUNLU — tunel acikken portal korumasiz kalmasin.
+
 ## SIRADAKI IS: teshis edilebilirlik paketi (uc kalem, tek paket)
 1. Gurultuyu kaynaginda kes — _pipe_masked tekrar eden satirlari bastirsin
    (ayni mesaj 60sn'de bir, "xN kez" ozetiyle). DTS uyarisi -c copy'de beklenen sey.
@@ -136,6 +200,22 @@ DUZELTME (5 Agu):
 Once "Suppressed N messages" aramasi yapilacak (ratelimit hipotezi).
 
 ## Sirada (oncelik sirasiyla)
+- TANITIM SAYFASI YOK. web/ altinda yalniz index.html (portal) + setup.html.
+  Karar bekliyor: cihazda mi (/ tanitim, /app portal) yoksa Vercel'de mi.
+  Vercel onerilir — cihaz kapaliyken de acik kalir ve cok kiracili /app
+  zaten bulutta olacak (device_health altyapisi CooksMind'da).
+  O durumda cihaz ayri ada tasinir: edgeway-01.ant-soft.uk gibi.
+- COK KIRACILI YAPI: cihazda OLAMAZ (rpi yalniz kendi kameralarini bilir).
+  Dogru yer control-plane: sites + site_users, device_tokens zaten
+  hw_id -> site bagini tasiyabilir.
+- db_freshness IKINCI CIHAZDA KORLESIR: EN TAZE satira bakar, saglam cihaz
+  olu cihazi maskeler. CM-89'daki cam15/cam16 korlugunun aynisi.
+  ParkMind eklenmeden once stale_count benzeri bir tur gerekecek.
+- CONTRACT §3 alan adlari GERCEKLE UYUSMUYOR: dokumanda disk_pct/mem_pct/
+  product/uptime_s/version yaziyor, snapshot() disk_used_pct/mem_used_pct
+  gonderiyor, son ucu hic gondermiyor. Sozlesme gercege uydurulacak.
+- Panel esikleri (180/600sn) motorun KOPYASI. Kopya sapar; esikler de
+  sozlesmeden gelmeli.
 - CONTRACT adim 5: control-plane device-token guard + alici uc (CooksMind).
   Cihazda EDGEWAY_CLOUD_URL hala BOS — nabiz hicbir yere gitmiyor.
 - CONTRACT adim 7: bekci (nabiz kesilirse TalkMind/WhatsApp uyarisi).
@@ -202,6 +282,22 @@ kaynak basina kota, acilis toleransi, verify_tree kapisi, idempotent apply_*.py 
 QR/hw_id pairing + relay.
 - threading.excepthook + thread-olumu alarmi (CamMind'da da gecerli;
   olay gelmemesi kanit degildir, tipki log yoklugu gibi)
+23 Agu dersleri:
+  (f) Cloudflare Universal SSL YALNIZCA TEK SEVIYE joker kapsar.
+      live.edgeway.ant-soft.uk iki seviye derinde kaldi, TLS el sikismasi
+      basarisiz oldu (curl 000). Cozum: edgeway-live.ant-soft.uk.
+  (g) sourceOnDemand MediaMTX yollari ILK istekte 404 doner (yol henuz acik
+      degil). hls.js olumcul hatada birakilirsa doseme SIYAH kalir. Yeniden
+      deneme sart — "canli calismiyor ama kadran calisiyor" bundandi:
+      ikinci deneme isinmis yola denk geliyordu.
+  (h) YENIDEN YAZIM hata siniflarini YAPISAL olarak kapatir (iki zamanlayici
+      yoksa titresim olamaz) ama KENDI yeni hatalarini getirir. Ornek: yarislari
+      onlemek icin eklenen GEN sayaci iki fonksiyonda paylasilinca render()
+      kendi kendini iptal etti — siyah ekran, donmus saat. "Bastan yazinca
+      hata cikmaz" beklentisi yanlistir.
+  (i) Cok kiracili yapi CIHAZDA kurulamaz. Cihaz yalniz kendi kaynaklarini
+      bilir; firma/kullanici duzlemi control-plane'e aittir.
+
 Genel dersler (sozlesmeye girecek): (a) cok kaynakli kayitta kota yoksa saglam kaynak
 arizalinin gecmisini yer; (b) zamana gore klasor yazan her servis klasoru yazmadan once
 garanti altina almali; (c) bir kaynagin log gurultusu digerinin ariza kanitini yok edebilir.
@@ -220,6 +316,16 @@ garanti altina almali; (c) bir kaynagin log gurultusu digerinin ariza kanitini y
    traceback vardi. Kapsam once dogrulanir, sonra sayilir.
 7. YENI: deploy komutu KOSARKEN sonraki komut yapistirilmaz — stdin'e gidiyor,
    dogrulama hic calismamis oluyor (bu turda uc kez oldu).
+8. YENI (23 Agu): .env degisikligi UC servisi ilgilendirir —
+   edgeway-recorder, edgeway-api, edgeway-heartbeat. 22 Agu'da ikisi ayri
+   ayri unutuldu: biri portali uc kamerada birakti, digeri buluta BAYAT CRIT
+   gonderip yanlis alarm caldirdi. Kaynak menusu yazilirken
+   "kaydet -> config -> servisleri tazele" zinciri UCUNU de kapsamali.
+9. YENI: apply_*.py dogrulamasi YAZMADAN ONCE yapilir. Yazma sonrasi
+   dogrulama tutmazsa "HIC DEGISIKLIK YAPILMADI" mesaji YALAN olur —
+   dosya zaten yazilmistir (22 Agu'da bir kez oldu).
+10. YENI: ayni ada indirilen dosya (~/Downloads/index.html) eski surumle
+   karisiyor. Kopyaladiktan sonra SILINIR.
 
 ## Degismeyen omurga
 Ring 1.5GB (~70dk/3kam) + S3 arsiv (edgeway-antsoft-site-002, eu-central-1, lifecycle);
