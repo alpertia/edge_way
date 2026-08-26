@@ -42,8 +42,13 @@
      ustune dusuyordu; digerleri canli mi kayit mi belirsiz kaliyordu.
      Faz farki konunca dosemeler ayni anda canli olmayabilir — rozet doseme
      basina olmali. */
-  .liveBadge { position:absolute; top:8px; right:8px; z-index:5; background:rgba(220,38,38,.92); color:#fff; font-size:11px; font-weight:800; letter-spacing:.5px; padding:3px 9px; border-radius:999px; pointer-events:none; display:none; }
-  .liveBadge.on { display:block; }
+  /* LIVE-LABEL-v1: ayri rozet yerine kamera adi etiketi kirmizilasir.
+     Canli olan doseme zaten kayitta; ekran icine "CANLI" yazmaya gerek yok. */
+  .camlbl { position:absolute; top:6px; left:6px; z-index:5; background:rgba(0,0,0,.55);
+            color:#fff; font-size:11px; padding:2px 7px; border-radius:6px;
+            pointer-events:none; transition:background .2s, color .2s; }
+  .camlbl.liveBadge { background:rgba(220,38,38,.92); color:#fff; font-weight:700; }
+  .camlbl.liveBadge::before { content:"● "; }
 
   .bar { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center; }
   .bar button { background:var(--panel); border:1px solid var(--line); color:var(--txt); padding:8px 16px; border-radius:8px; font-size:14px; cursor:pointer; }
@@ -271,16 +276,13 @@ function makeTile(name) {
   v.muted = true; v.playsInline = true;
   const lbl = document.createElement('div');
   lbl.textContent = name;
-  lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px;pointer-events:none';
+  lbl.className = 'camlbl';   /* LIVE-LABEL-v1 */
   const nc = document.createElement('div');
   nc.textContent = 'bu saatte kayıt yok';
   nc.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#8fa3bd;font-size:13px;background:#000;border-radius:10px;pointer-events:none';
-  const bdg = document.createElement('div');
-  bdg.className = 'liveBadge';
-  bdg.textContent = '● CANLI';
-  wrap.append(v, lbl, nc, bdg);
+  wrap.append(v, lbl, nc);
   attachZoom(v, wrap);
-  const tile = { name, livePath: (CAMS[name] || {}).live_path || name, wrap, v, nc, bdg, segs: [], idx: -1, hls: null, retry: null };
+  const tile = { name, livePath: (CAMS[name] || {}).live_path || name, wrap, v, nc, lbl, segs: [], idx: -1, hls: null, retry: null };
   v.addEventListener('ended', () => {
     if (live) return;
     if (tile.idx + 1 < tile.segs.length) playAt(tile, tile.idx + 1, 0);
@@ -426,7 +428,7 @@ function startTicker() {
 
 /* Rozet: doseme gercekten canli akis oynatiyorsa. */
 function setBadges() {
-  TILES.forEach(t => { if (t.bdg) t.bdg.classList.toggle('on', live && !!t.hls); });
+  TILES.forEach(t => { if (t.lbl) t.lbl.classList.toggle('liveBadge', live && !!t.hls); });
 }
 function goLive() {
   if (selDay !== todayKey()) { selDay = todayKey(); renderCal(); }

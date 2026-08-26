@@ -24,9 +24,45 @@ KEEP_LAST = 5
 MASK = __import__("re").compile(r"//[^/@\s:]+:[^@\s]+@")
 
 
+# LOG-THROTTLE-v1: ayni mesaj penceresi (saniye) ve ozet esigi
+_THROTTLE_S = 60
+_seen = {}
+
+
+def _shape(msg: str) -> str:
+    """Mesajin degisken kisimlarini soyar; ayni kalip tek anahtara duser.
+    'DTS; previous: 123, current: 456' ile 'previous: 789, current: 12'
+    ayni satir sayilir."""
+    out = []
+    for ch in msg:
+        out.append("N" if ch.isdigit() else ch)
+    s = "".join(out)
+    while "NN" in s:
+        s = s.replace("NN", "N")
+    return s
+
+
 def _pipe_masked(cam, pipe):
+    """LOG-THROTTLE-v1 — tekrar eden ffmpeg satirlarini bastirir.
+
+    Ilk ornek YAZILIR. Ayni kalip 60sn icinde tekrarlarsa sessiz sayilir;
+    pencere dolunca "xN kez" ozetiyle bir kez daha yazilir.
+    Boylece bilgi kaybolmaz ama journald bogulmaz.
+    """
     for line in pipe:
-        print(f"[ffmpeg:{cam}] {MASK.sub('//***:***@', line.rstrip())}", file=sys.stderr)  # aktif yazilan + son segmentler dokunulmaz
+        msg = MASK.sub('//***:***@', line.rstrip())
+        key = (cam, _shape(msg))
+        now = time.time()
+        first, count = _seen.get(key, (0.0, 0))
+        if now - first >= _THROTTLE_S:
+            if count > 1:
+                print(f"[ffmpeg:{cam}] onceki satir x{count} kez ({_THROTTLE_S}sn)", file=sys.stderr)
+            print(f"[ffmpeg:{cam}] {msg}", file=sys.stderr)
+            _seen[key] = (now, 1)
+        else:
+            _seen[key] = (first, count + 1)
+        if len(_seen) > 500:
+            _seen.clear()
 
 
 def ffmpeg_cmd(cam: str, url: str) -> list[str]:
