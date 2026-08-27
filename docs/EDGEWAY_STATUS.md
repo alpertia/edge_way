@@ -10,6 +10,62 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
+## GUNCEL DURUM — 27 Agu
+
+Kayit: cam1, cam19 (2 kamera). Izleme: 19 kamera (EDGEWAY_VIEW_CAMERAS).
+Kaynak OPi5 (CAMM-131), Tailscale uzeri — kutu evde, LAN erisimi YOK.
+wa %8.3, CPU %84 bosta, 62.8C. HEAD = 26ce127.
+
+### DARBOGAZ DISK, ISLEMCI DEGIL (27 Agu, sayisal)
+12 kamera mainstream H.265 ile: wa=%89.9, id=%0.0, us=%5.9.
+CPU bos, surecler DISKE YAZMAYI bekliyor. Kart: SD8GB, 09/2015 — 11 yillik.
+2 kameraya inince wa %89.9 -> %8.3.
+
+  5 kamera  load15 3.61   6 kamera 4.46   7 kamera 4.97
+  8 kamera  load15 5.35  12 kamera 9.50   stall hepsinde 0
+
+SONUC: RPi4'e gecmek YANLIS yon. Kart degisimi dogru yon.
+Endurance microSD (Kingston/Samsung PRO Endurance) 64-256GB.
+Kapasite testi sirasinda tavan bulunamadi — 12 kamerada bile stall yok,
+yalniz kart tikandi.
+
+### IZLEME/KAYIT AYRIMI (26ce127)
+Izleme diske YAZMAZ, kayit yazar. Bu yuzden listeler ayrildi:
+  EDGEWAY_CAMERAS       -> kaydedilecekler (kayitci)
+  EDGEWAY_VIEW_CAMERAS  -> yalniz canli izlenecekler
+/api/cameras ikisini birlestirir, recorded bayragi doner.
+sourceOnDemand sayesinde izlenmeyen kamera SIFIR maliyet.
+
+### LOG FIRTINASI KESILDI (472a57c)
+edgeway-recorder dakikada ~325 satir yaziyordu; 3dk'lik ornekte 371 satirin
+371'i "Non-monotonic DTS". Bedeli: journald zinciri systemd/dbus'i %50-70
+CPU'ya cikariyordu ve 8 kamera olcumu 5.35 yerine 9.79 gosteriyordu.
+_pipe_masked artik tekrar eden satiri 60sn bastirir, "xN kez" ozeti yazar.
+1624 -> 61 satir/5dk. Ayni sel 1/2 Agu'da kaniti yok etmisti.
+
+### PORTAL (472a57c, LIVE-RESUME-v1)
+- Acilista ~00:26'dan oynatiyordu: render() span[0] (arsivin EN ESKISI)
+  kullaniyordu, bulut arsivi birlesince gunun basina atliyordu. Artik
+  bugundeyse CANLI, gecmis gunde EN YENI an.
+- Sekme arka planda kalinca HLS oluyordu; visibilitychange ile tazelenir.
+- CANLI rozeti kaldirildi, kamera adi etiketi canliyken kirmizi + nokta.
+
+## OLCUM DERSI (27 Agu, kalici)
+`ps -o pcpu` SUREC OMRU ORTALAMASI verir, anlik degil. Uc olcum boyunca
+"tailscaled %80, kamera sayisindan bagimsiz" diye okundu; `top -bn2` ayni
+anda %0 gosterdi. Hesap: 9s14dk omur, 405dk CPU -> %73 ortalama.
+ANLIK CPU icin `top -bn2` veya `vmstat` kullanilir, `ps` KULLANILMAZ.
+Bu hata bugunku butun kapasite sayilarini kirletti; load ortalamalari
+(uptime) ve wa (vmstat/top) saglam kaldi.
+
+## CAMM-131 DUZELTMESI
+Handoff "RPi kaynagi 192.168.0.3'e cevrilmis" diyor — YANLIS. Kutu evde,
+LAN erisilemiyor (ping duser). Tailscale kullanildi: 100.95.169.39:8554.
+DVR oturum hesabi etkilenmiyor: cekilen kameralarin hepsinin OPi5'te
+zaten okuyucusu var, ek oturum acilmaz.
+"RPi telemetrisi 4 gundur sessiz" kalemi KAPANDI: rpimon-push 21 Agu'da
+KASTEN durduruldu (Orin icin yazilmisti, rpi'de yanlis veri uretiyordu).
+
 ## GUNCEL DURUM — 23 Agu 09:20
 Kayitli kameralar: cam1, cam23, cam19, cam20 (Orin relay uzeri, dorde cikildi).
 status OK, dordu de taze, disk %70, temp 60C, load1 ~2.2, uc servis active.
