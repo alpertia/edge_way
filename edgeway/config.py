@@ -78,6 +78,27 @@ TEMP_SHUTDOWN = float(env("EDGEWAY_TEMP_SHUTDOWN", "82"))
 
 MAX_STORAGE_GB = float(env("EDGEWAY_MAX_STORAGE_GB", "0"))  # 0 = kapali
 
+def view_cameras() -> dict[str, str]:
+    """VIEW-CAMS-v1 — yalnizca CANLI izlenecek kameralar.
+
+    Kayit darbogazi diskte; izleme diske yazmaz. Bu yuzden izleme listesi
+    kayit listesinden AYRI ve daha genis olabilir.
+    Bicim EDGEWAY_CAMERAS ile ayni: ad=rtsp://...
+    Ayni ad iki listede de varsa KAYIT listesi kazanir.
+    """
+    out: dict[str, str] = {}
+    raw = env("EDGEWAY_VIEW_CAMERAS", "")
+    for part in raw.split(","):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        name, url = part.split("=", 1)
+        name = name.strip()
+        if name:
+            out[name] = url.strip()
+    return out
+
+
 def live_paths() -> dict[str, str]:
     out = {}
     for part in env("EDGEWAY_LIVE_PATHS", "").split(","):

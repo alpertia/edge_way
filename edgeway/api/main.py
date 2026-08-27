@@ -91,11 +91,28 @@ def api_health() -> dict:
 
 @app.get("/api/cameras", dependencies=[Depends(auth)])
 def api_cameras() -> dict:
+    """VIEW-CAMS-v1 — kayitlilar + yalnizca-izlenenler.
+
+    recorded=false olanlarda gecmis YOKTUR; portal takvimi bos gorur,
+    yalnizca canli oynatir. Bu kasitli: disk darbogazi yuzunden az
+    kamera kaydedilir ama cok kamera izlenebilir.
+    """
+    lp = config.live_paths()
+    rec = config.cameras()
     cams = {}
-    for name in config.cameras():
+    for name in rec:
         cams[name] = {
-            "live_path": config.live_paths().get(name, name),
+            "live_path": lp.get(name, name),
             "recordings": f"/api/recordings/{name}",
+            "recorded": True,
+        }
+    for name in config.view_cameras():
+        if name in cams:
+            continue
+        cams[name] = {
+            "live_path": lp.get(name, name),
+            "recordings": None,
+            "recorded": False,
         }
     return {"cameras": cams}
 

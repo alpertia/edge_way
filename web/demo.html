@@ -527,8 +527,11 @@ async function render(keepTime) {
   if (my !== GEN) return;
 
   $('jogDate').textContent = fmtDay(selDay);
-  if (live && selDay === todayKey()) goLive();
-  else { leaveLive(); syncSeekTo(at !== null ? at : span[0]); }
+  /* LIVE-RESUME-v1: bugundeysek CANLI baslar. Gecmis gunde en YENI ana
+     gidilir — eskiden span[0] (arsivin en eskisi) kullaniliyordu ve bulut
+     arsivi birlesince portal her acilista gunun basindan oynatiyordu. */
+  if (selDay === todayKey() && at === null) goLive();
+  else { leaveLive(); syncSeekTo(at !== null ? at : Math.max(span[0], span[1] - 60)); }
 }
 
 function pickDay(day) {
@@ -764,6 +767,13 @@ $('loginGo').onclick = doLogin;
 $('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 $('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginPass').focus(); });
 $('logout').onclick = () => { localStorage.removeItem('edgeway_token'); location.reload(); };
+
+/* LIVE-RESUME-v1: sekme arka planda kalinca HLS oluyor; geri donuldugunde
+   doseme donmus kaliyor. Gorunurluk geri gelince canli yeniden kurulur. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !TILES.length) return;
+  if (live) { TILES.forEach(t => { if (!t.hls) tileGoLive(t); }); }
+});
 
 (async () => {
   try {
