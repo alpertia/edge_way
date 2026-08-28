@@ -27,7 +27,15 @@
   /* Kamera satiri: ad = yalniz bunu goster, kutu = izgaraya ekle/cikar */
   /* Satir: [kutu] [ad]. Kutu = izgarada goster/gizle. Ada tikla = yalniz o.
      Secili satir sol seritle isaretlenir; tek secili ise ad vurgulanir. */
-  .camrow { display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:7px; border-left:3px solid transparent; }
+  /* CAMGRID-v1: 25 kamera tek sutunda tasiyordu. Genislige gore 1-3 sutun. */
+  #cams { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:2px 8px; }
+  @media (max-width:800px){ #cams { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); } }
+  .camrow { display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px; border-left:3px solid transparent; min-width:0; }
+  /* Kayitta olan kamera: yanip sonen kirmizi R */
+  .recdot { flex:0 0 auto; font-size:10px; font-weight:800; color:#dc2626; letter-spacing:.5px; display:none; }
+  .recdot.on { display:inline; animation:recblink 2s ease-in-out infinite; }
+  @keyframes recblink { 0%,100% { opacity:1 } 50% { opacity:.2 } }
+  @media (prefers-reduced-motion:reduce){ .recdot.on { animation:none } }
   .camrow.sel { border-left-color:var(--acc); background:#0f1e39; }
   .camrow input { width:16px; height:16px; accent-color:var(--acc); cursor:pointer; flex:0 0 auto; }
   .camrow button { flex:1; text-align:left; background:none; border:none; color:var(--mut); padding:2px 0; font-size:14px; cursor:pointer; }
@@ -598,6 +606,11 @@ async function loadCams() {
     const b = document.createElement('button');
     b.textContent = n;
     b.onclick = () => { selCams = new Set([n]); syncCamUI(); render(true); };
+    const rec = document.createElement('span');
+    rec.className = 'recdot';
+    rec.textContent = 'R';
+    rec.title = 'kayitta';                       /* CAMGRID-v1 */
+    if (CAMS[n] && CAMS[n].recorded) rec.classList.add('on');
     const c = document.createElement('input');
     c.type = 'checkbox'; c.className = 'camChk'; c.dataset.cam = n;
     c.onchange = () => {
@@ -611,7 +624,7 @@ async function loadCams() {
       syncCamUI(); render(true);
     };
     if (ix === 0) selCams.add(n);
-    row.append(c, b); el.appendChild(row);
+    row.append(c, b, rec); el.appendChild(row);   /* CAMGRID-v1 */
   });
   syncCamUI();
   await render(false);
