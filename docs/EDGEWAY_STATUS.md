@@ -10,6 +10,81 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
+## eW-3 KAPANIS — 27 Agu aksami
+
+Sistem rahat: CPU %86 bosta, wa %0, 60C, load 1.28.
+Kayit 2 kamera (cam1, cam19), stall yok. 28 yol tanimli, izleyen yokken 2 aktif.
+
+### KAPASITE — IKI AYRI SINIR (asil bulgu)
+
+KAYIT tarafi DISK sinirli:
+  12 kamera mainstream H.265 -> wa %89.9, id %0.0. CPU bos, surecler
+  diske yazmayi bekliyor. Kart SD8GB 09/2015 — 11 yillik.
+  2 kameraya inince wa %89.9 -> %8.3 -> %0.
+
+DAGITIM tarafi CPU sinirli:
+  23 aktif yol / 25 okuyucu (CooksMind /cameras acikken):
+    CPU %57.4 us, %17.2 sy, %16.7 bosta, %8.7 si
+    70.4C (WARN esigi 75), load 5.41
+    HLS "segment duration changed" 5dk'da 30 kez -> paketleyici yetisemiyor
+    kayit stall: 0 (kayit etkilenmedi)
+  TAVAN 23. Rahat bolge tahminen 12-15; o araliк olculmedi.
+
+SONUC: RPi4'e gecmek YANLIS yon. Kart degisimi kayit tarafini,
+LAN'a gecmek (Tailscale yerine) dagitim tarafini rahatlatir.
+Sahaya alinip saglam SD takilirsa kapasite belirgin artar.
+
+### IZLEME/KAYIT AYRIMI (26ce127)
+EDGEWAY_CAMERAS = kaydedilecekler, EDGEWAY_VIEW_CAMERAS = yalniz izlenecekler.
+/api/cameras ikisini birlestirir, recorded bayragi doner.
+Izleme diske YAZMAZ; bu yuzden az kayit + cok izleme mumkun.
+
+### COOKSMIND GECISI (27 Agu)
+CooksMind kamera stream'lerini artik EdgeWay'den cekiyor:
+  https://edgeway-live.ant-soft.uk/{cam_id}/index.m3u8
+Gecis dogrulandi: istekler gelmeden aktif yol 2 / HLS kaydi 0 idi;
+sayfa acilinca 23 aktif yol / 25 okuyucu oldu.
+WebRTC de acildi (webrtc: yes, :8889) ama yalniz Tailscale uzerinden.
+
+Yayin yapmayan 6 kamera (cam10, cam14, cam15, cam18, cam24, cam25) icin
+runOnDemand placeholder kuruldu: "EDGEWAY hizmet vermiyor" yazan 10sn'lik
+klip donguye alinir (-c copy, kodlama yok). Player'da kirik kutu cikmaz.
+Uretim: /var/lib/edgeway/placeholder/*.mp4
+
+### LOG FIRTINASI KESILDI (472a57c)
+DTS seli dakikada ~325 satir yaziyordu; journald zinciri systemd/dbus'i
+%50-70 CPU'ya cikariyor ve olcumleri kirletiyordu. _pipe_masked artik
+tekrar eden satiri 60sn bastirir, "xN kez" ozeti yazar. 1624 -> 61 satir/5dk.
+
+### PORTAL (LIVE-RESUME-v1)
+- Acilista ~00:26'dan oynatiyordu: render() span[0] (arsivin EN ESKISI)
+  kullaniyordu. Artik bugundeyse CANLI, gecmis gunde EN YENI an.
+- Sekme arka planda kalinca HLS oluyordu; visibilitychange ile tazelenir.
+- CANLI rozeti kaldirildi, kamera adi etiketi canliyken kirmizi + nokta.
+
+## OLCUM DERSI (kalici)
+`ps -o pcpu` SUREC OMRU ORTALAMASI verir, anlik degil. Uc olcum boyunca
+"tailscaled %80" diye okundu; `top -bn2` ayni anda %0 gosterdi
+(9s14dk omur, 405dk CPU -> %73 ortalama). ANLIK CPU icin `top -bn2`
+veya `vmstat`; `ps` KULLANILMAZ.
+
+## CAMM-131 DUZELTMESI
+Handoff "RPi kaynagi 192.168.0.3'e cevrilmis" diyor — YANLIS. Kutu evde,
+LAN erisilemiyor. Tailscale kullanildi: 100.95.169.39:8554.
+DVR oturum hesabi etkilenmiyor: cekilen kameralarin hepsinin OPi5'te
+zaten okuyucusu var.
+"RPi telemetrisi 4 gundur sessiz" KAPANDI: rpimon-push 21 Agu'da KASTEN
+durduruldu (Orin icin yazilmisti, rpi'de yanlis veri uretiyordu).
+
+## ACIK KALANLAR
+- threading.excepthook yok — bilinmeyen thread olumu sessiz
+- Kaynak basina kota — kamera listeden cikinca gecmisi siliniyor
+- db_freshness ikinci cihazda korlesir (CM-89 korlugunun aynisi)
+- CONTRACT §3 alan adlari gercekle uyusmuyor
+- Panel esikleri motorun kopyasi
+- SD kart degisimi (kayit kapasitesi icin sart)
+- 12-15 esizamanli akis araligi olculmedi
+
 ## GUNCEL DURUM — 27 Agu
 
 Kayit: cam1, cam19 (2 kamera). Izleme: 19 kamera (EDGEWAY_VIEW_CAMERAS).
