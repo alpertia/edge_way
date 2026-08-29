@@ -10,6 +10,84 @@ Devir dokumani. Onceki surumun ustune gecer (docs/EDGEWAY_STATUS.md). Degerler M
 - Son durum (2 Agu 09:12 deploy sonrasi): status OK, uc kamera rec_age 0sn, disk %73.9,
   temp 56C, load1 1.24, uc servis active. HEAD = c4946ad, agac temiz, 53 invariant yesil.
 
+## eW-3 FINAL — 28 Agu aksami (eW-4'e devir)
+
+Sistem stabil. Kayit 2 kamera (cam1, cam19), relay 25 kamera, placeholder YOK.
+CPU ~%78 bosta, wa ~%1, 62C, load 2.55. 28 yol tanimli, izleyen yokken 2 aktif.
+
+### EDGEWAY KIME HIZMET EDIYOR (28 Agu itibariyle)
+  1. Kendi portali — edgeway.ant-soft.uk (25 canli + cam1/cam19 gecmis)
+  2. CooksMind — edgeway-live.ant-soft.uk/{cam}/index.m3u8 (25 kamera, 27 Agu gecisi)
+  3. Kendisi — 2 kamera kaydi, S3 arsivi, nabiz, bekci
+Orin ve CamMind EdgeWay'den ALMIYOR; OPi5'ten besleniyorlar.
+Kanit: EdgeWay 4dk kapatildi, Orin etkilenmedi.
+
+### 25 KAMERA KAYIT DENEMESI — BASARISIZ (28 Agu)
+  wa %86.6, CPU %0.0 bosta, load 21.97, RAM 552/920M
+  10 dakikada 104 ffmpeg cikisi (surekli kopup donuyor)
+  stall sayaci 0 gosteriyordu — YANILTICI: ffmpeg'ler 180sn dolmadan
+  kendiliginden cikip donuyor, watchdog goremiyor.
+Panel "hepsi taze" gosteriyordu cunku surekli yeniden basliyorlardi.
+SONUC: 25 kamera kaydi bu kartla MUMKUN DEGIL.
+
+2 kayit / 25 relay'e gecince: wa %86.6 -> %1.0, load 21.97 -> 2.55, cikis 0.
+
+### EDGEWAY'IN OPI5'E MALIYETI OLCULDU (28 Agu)
+EdgeWay acik:   OPi5 CPU %39.1 bosta, load 9.83, okuyucu 33
+EdgeWay kapali: OPi5 CPU %43.8 bosta, load 7.48, okuyucu 21
+Fark: 12 okuyucu, sadece %4.7 CPU. RTSP dagitimi UCUZ.
+OPi5'in yuku MediaMTX'ten degil, kendi YOLO inference'indan
+(multi_cam_runner 1353MB, 129 thread, python %154).
+SONUC: RPi'yi merkezi relay yapmak OPi5'i RAHATLATMAZ.
+
+### SENARYO KARSILASTIRMASI (RPi3B+ = 400 cekirdek-%)
+Olculmus birim: yol basina ~11 c% (cekme + HLS, Tailscale uzeri).
+  1. Bugunku: DVR->OPi5->RPi (on-demand)          RPi %22   — calisiyor
+  2. DVR->RPi(25) -> OPi5+Orin+iki UI             RPi ~%89  — TIKANIR
+     (25 cekme 100 + 50 RTSP 75 + 25 HLS 175 + kayit 7 = 357/400)
+  3. DVR->RPi(25 RTSP) -> OPi5(HLS) -> UI'lar     RPi ~%46  — calisir
+  4. DVR->OPi5(25) -> RPi(6) -> EdgeWay UI        RPi ~%20  — rahat
+  6. Musteride tek kutu: DVR->RPi(8), 4 kayit     RPi ~%19  — URUN SENARYOSU
+Asil yuk HLS muxer sayisi (kamera basina ~7 c%), RTSP dagitim degil (~1.5).
+
+### PLACEHOLDER HATASI (28 Agu) — KENDI DERSIME DUSTUM
+cam14/15/24/25 icin "yayin yok" placeholder'i kuruldu. YANLISTI.
+Sebep: MediaMTX API'sindeki `ready` alani "kaynak var mi" diye okundu.
+sourceOnDemand yollarinda izleyici yokken ready:false gorunur — bu
+"yayin yok" DEMEK DEGIL, "su an akmiyor" demek.
+ffprobe ile dogrudan cekince dordu de goruntu verdi:
+  cam14 hevc 1280x720 · cam15/24/25 hevc 960x1080
+CamMind olcumu de gosterdi: placeholder 33kbps/5fps, gercek 268kbps.
+
+BU HATAYI 21 AGU'DA KENDIM TESPIT ETMISTIM (rpimon-push'un
+`dvr_reachable: len(ready)>0` hesabi ayni yanlisti) ve dokumana yazmistim.
+Bir hafta sonra ayni tuzaga dustum.
+KURAL: `ready` alani kaynak varligini GOSTERMEZ. Kaynak testi ffprobe ile
+yapilir.
+Duzeltildi: placeholder kaldirildi, sourceOnDemandStartTimeout: 10s eklendi.
+
+### PORTAL (4e4e0cf)
+- Kamera listesi tek sutunda tasiyordu -> izgara (genislige gore 1-3 sutun)
+- Kayitta olan kamerada yanip sonen kirmizi R (recorded bayragindan turer,
+  elle tutulmaz)
+
+### CAMM-131 SONRASI TOPOLOJI
+RPi kaynak: rtsp://127.0.0.1:8554/{cam} (kendi MediaMTX'i)
+RPi MediaMTX kaynak: rtsp://100.95.169.39:8554/{cam} (OPi5, Tailscale)
+SAHAYA GIDINCE: 100.95.169.39 -> 192.168.0.3 (LAN). Tek sed.
+
+### eW-4'E DEVIR — ACIK KALANLAR
+- SD kart: SD8GB 09/2015. Kayit kapasitesinin TEK engeli.
+  Endurance microSD 64-256GB (Kingston/Samsung PRO Endurance).
+- threading.excepthook yok — bilinmeyen thread olumu sessiz
+- Kaynak basina kota — kamera listeden cikinca gecmisi siliniyor
+- db_freshness ikinci cihazda korlesir (CM-89 korlugunun aynisi)
+- CONTRACT §3 alan adlari gercekle uyusmuyor
+- Panel esikleri motorun kopyasi
+- Placeholder/kamera listesi elle tutuluyor; cameras tablosundan turemeli
+- 12-15 esizamanli akis araligi olculmedi
+- Sahada LAN olcumu yapilmadi (bugunku sayilar VPN yuklu)
+
 ## eW-3 KAPANIS — 27 Agu aksami
 
 Sistem rahat: CPU %86 bosta, wa %0, 60C, load 1.28.
