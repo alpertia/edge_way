@@ -88,6 +88,7 @@ main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
 @media (max-width:1200px){ main { grid-template-columns: minmax(0,1fr) !important; } }
 @media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
 #cams { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)) !important; }
+.camlbl { background:#2f5bd0 !important; color:#fff !important; font-weight:500 !important; }
 header { flex-wrap: wrap !important; row-gap: 8px; }
 header .stat { white-space: nowrap; }
 header .ewnav { flex-wrap: wrap; }
@@ -97,7 +98,8 @@ header .ewnav { flex-wrap: wrap; }
 </style>
 </head>
 <body>
-<div class="ewnav" style="position:sticky;top:0;z-index:9000;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 16px;background:#0b1220;border-bottom:1px solid #1e2a44;font:500 13px/1 system-ui,-apple-system,sans-serif"><a href="/demo" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #4a7dfc;background:#2f5bd0;color:#ffffff">Canlı</a><a href="/storage" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Depolama</a><a href="/setup" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Kurulum</a><a href="/" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Tanıtım</a></div>
+<style>body{padding-top:54px !important}</style><div class="ewnav" style="position:fixed;top:0;left:0;right:0;height:54px;z-index:9000;display:flex;align-items:center;gap:6px;padding:0 16px;background:#0b1220;border-bottom:1px solid #1e2a44;box-sizing:border-box;font:500 13px/1 system-ui,-apple-system,sans-serif"><a href="/demo" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #4a7dfc;background:#2f5bd0;color:#ffffff">Canlı</a><a href="/storage" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Depolama</a><a href="/setup" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Kurulum</a><a href="/" style="text-decoration:none;padding:7px 13px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Tanıtım</a></div>
+
 <div id="login" style="display:none;position:fixed;inset:0;z-index:99;background:#0b1526;align-items:center;justify-content:center;padding:20px">
   <div class="panel" style="width:100%;max-width:340px">
     <div style="font-size:20px;font-weight:800;margin-bottom:2px">edge<b style="color:var(--acc)">WAY</b></div>
@@ -832,15 +834,15 @@ document.addEventListener('visibilitychange', () => {
   var css = document.createElement('style');
   css.textContent =
     '@keyframes ewrec{0%,100%{opacity:1}50%{opacity:.3}}' +
-    '.ewrec{position:absolute;top:8px;right:8px;z-index:5;display:flex;align-items:center;gap:6px;' +
-    'padding:5px 10px;border-radius:14px;font:700 11px/1 system-ui,sans-serif;letter-spacing:.04em;' +
-    'cursor:pointer;user-select:none;border:1px solid transparent}' +
-    '.ewrec.on{background:#d93a3f;color:#fff;border-color:#ff8f92}' +
-    '.ewrec.off{background:rgba(13,21,38,.78);color:#8fa2c0;border-color:#2b3a5c}' +
-    '.ewrec .dot{width:8px;height:8px;border-radius:50%;background:currentColor}' +
-    '.ewrec.on .dot{background:#fff;animation:ewrec 2s ease-in-out infinite}' +
+    '.ewrec{position:absolute;top:8px;right:8px;z-index:5;width:26px;height:26px;' +
+    'display:flex;align-items:center;justify-content:center;border-radius:50%;' +
+    'font:700 13px/1 system-ui,sans-serif;cursor:pointer;user-select:none;' +
+    'border:1px solid transparent}' +
+    '.ewrec.on{background:#d93a3f;color:#fff;border-color:#ff8f92;animation:ewrec 2s ease-in-out infinite}' +
+    '.ewrec.off{background:rgba(13,21,38,.55);color:#7f8fa8;border-color:#2b3a5c;' +
+    'text-decoration:line-through;opacity:.6}' +
     '.ewrec.busy{opacity:.45;pointer-events:none}' +
-    '@media (prefers-reduced-motion: reduce){.ewrec.on .dot{animation:none}}';
+    '@media (prefers-reduced-motion: reduce){.ewrec.on{animation:none}}';
   document.head.appendChild(css);
 
   function tok() {
@@ -889,14 +891,14 @@ document.addEventListener('visibilitychange', () => {
       if (!b) {
         b = document.createElement('div');
         b.className = 'ewrec';
-        b.innerHTML = '<span class="dot"></span><span class="txt"></span>';
+        b.textContent = 'R';
         b.title = 'Kaydi ac / kapat';
         b.addEventListener('click', function (ev) { ev.stopPropagation(); toggle(t.name, b); });
         t.wrap.appendChild(b);
       }
       var on = RECSET.has(t.name);
       b.className = 'ewrec ' + (on ? 'on' : 'off');
-      b.querySelector('.txt').textContent = on ? 'REC' : 'KAYIT KAPALI';
+      b.title = on ? 'kayitta — kapatmak icin tikla' : 'kayit kapali — acmak icin tikla';
     });
   }
   fetchRec().then(sync);
