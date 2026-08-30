@@ -89,6 +89,9 @@ main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
 @media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
 #cams { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)) !important; }
 .camlbl { background:#2f5bd0 !important; color:#fff !important; font-weight:500 !important; }
+body.ewpast .camlbl { background:#39465e !important; color:#cbd6e8 !important; }
+.recdot { cursor:pointer; }
+.timecol { grid-column: 1 / -1 !important; order: -1; }
 header { flex-wrap: wrap !important; row-gap: 8px; }
 header .stat { white-space: nowrap; }
 header .ewnav { flex-wrap: wrap; }
@@ -827,22 +830,17 @@ document.addEventListener('visibilitychange', () => {
 })();
 </script>
 <script>
-/* REC-BADGE-v1 — kayit rozeti kameranin KENDI kutucugunda, nabiz atarak.
-   Mevcut doseme koduna dokunmaz; TILES uzerinden rozetleri senkron tutar. */
+/* PLAY-BADGE-v1 — kutucuk rozeti OYNATMA durumunu gosterir (kayit degil).
+   Kayit ac/kapa alttaki kamera listesindeki R rozetindedir. */
 (function () {
   var RECSET = null;
   var css = document.createElement('style');
   css.textContent =
-    '@keyframes ewrec{0%,100%{opacity:1}50%{opacity:.3}}' +
-    '.ewrec{position:absolute;top:8px;right:8px;z-index:5;width:26px;height:26px;' +
-    'display:flex;align-items:center;justify-content:center;border-radius:50%;' +
-    'font:700 13px/1 system-ui,sans-serif;cursor:pointer;user-select:none;' +
-    'border:1px solid transparent}' +
-    '.ewrec.on{background:#d93a3f;color:#fff;border-color:#ff8f92;animation:ewrec 2s ease-in-out infinite}' +
-    '.ewrec.off{background:rgba(13,21,38,.55);color:#7f8fa8;border-color:#2b3a5c;' +
-    'text-decoration:line-through;opacity:.6}' +
-    '.ewrec.busy{opacity:.45;pointer-events:none}' +
-    '@media (prefers-reduced-motion: reduce){.ewrec.on{animation:none}}';
+    '.ewrec{position:absolute;top:8px;right:8px;z-index:5;width:28px;height:28px;display:flex;' +
+    'align-items:center;justify-content:center;border-radius:50%;font:600 12px/1 system-ui,sans-serif;' +
+    'cursor:pointer;user-select:none;background:rgba(13,21,38,.62);color:#e6edf9;' +
+    'border:1px solid #2b3a5c}' +
+    '.ewrec:hover{border-color:#4a7dfc}';
   document.head.appendChild(css);
 
   function tok() {
@@ -866,44 +864,59 @@ document.addEventListener('visibilitychange', () => {
       .then(function (d) { if (d) RECSET = new Set(d.recording); })
       .catch(function () {});
   }
-  function toggle(name, badge) {
+  window.ewToggleRec = function (name) {
     if (!RECSET) return;
     var on = !RECSET.has(name);
-    badge.classList.add('busy');
     fetch('/api/cameras/record', { method: 'POST', headers: hdr(true),
       body: JSON.stringify({ cam: name, on: on }) })
-      .then(function (r) {
-        if (r.ok) return r.json();
-        return r.json().then(function (j) { throw new Error(j.detail || 'hata'); });
-      })
-      .then(function (res) { RECSET = new Set(res.recording); sync(); })
+      .then(function (r) { return r.ok ? r.json() : r.json().then(function (x) { throw new Error(x.detail || 'hata'); }); })
+      .then(function (res) { RECSET = new Set(res.recording); paintList(); })
       .catch(function (e) {
-        if (e instanceof TypeError) { if (on) RECSET.add(name); else RECSET.delete(name); sync(); return; }
+        if (e instanceof TypeError) { if (on) RECSET.add(name); else RECSET.delete(name); paintList(); return; }
         alert('Kayit degistirilemedi: ' + e.message);
-      })
-      .finally(function () { badge.classList.remove('busy'); });
+      });
+  };
+  function paintList() {
+    if (!RECSET) return;
+    [].forEach.call(document.querySelectorAll('#cams .recdot'), function (d) {
+      var row = d.closest('.camrow'); if (!row) return;
+      var inp = row.querySelector('input'); if (!inp) return;
+      var n = inp.dataset.cam;
+      d.classList.toggle('on', RECSET.has(n));
+      d.title = RECSET.has(n) ? 'kayitta — kapatmak icin tikla' : 'kayit kapali — acmak icin tikla';
+      if (!d.dataset.wired) {
+        d.dataset.wired = '1';
+        d.addEventListener('click', function (ev) { ev.stopPropagation(); window.ewToggleRec(n); });
+      }
+    });
   }
   function sync() {
-    if (typeof TILES === 'undefined' || !RECSET) return;
-    TILES.forEach(function (t) {
-      if (!t || !t.wrap) return;
-      var b = t.wrap.querySelector('.ewrec');
-      if (!b) {
-        b = document.createElement('div');
-        b.className = 'ewrec';
-        b.textContent = 'R';
-        b.title = 'Kaydi ac / kapat';
-        b.addEventListener('click', function (ev) { ev.stopPropagation(); toggle(t.name, b); });
-        t.wrap.appendChild(b);
-      }
-      var on = RECSET.has(t.name);
-      b.className = 'ewrec ' + (on ? 'on' : 'off');
-      b.title = on ? 'kayitta — kapatmak icin tikla' : 'kayit kapali — acmak icin tikla';
-    });
+    var isPast = (typeof live !== 'undefined') && !live;
+    document.body.classList.toggle('ewpast', !!isPast);
+    var icon = (typeof paused !== 'undefined' && paused) ? '\u23F8' : '\u25B6';
+    if (typeof TILES !== 'undefined') {
+      TILES.forEach(function (t) {
+        if (!t || !t.wrap) return;
+        var b = t.wrap.querySelector('.ewrec');
+        if (!b) {
+          b = document.createElement('div');
+          b.className = 'ewrec';
+          b.title = 'oynat / duraklat';
+          b.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var pb = document.getElementById('btnPlay');
+            if (pb) pb.click();
+          });
+          t.wrap.appendChild(b);
+        }
+        b.textContent = icon;
+      });
+    }
+    paintList();
   }
   fetchRec().then(sync);
   setInterval(function () { fetchRec().then(sync); }, 30000);
-  setInterval(sync, 1000);
+  setInterval(sync, 500);
 })();
 </script>
 </body>
