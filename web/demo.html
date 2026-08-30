@@ -88,6 +88,9 @@ main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
 @media (max-width:1200px){ main { grid-template-columns: minmax(0,1fr) !important; } }
 @media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
 #cams { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)) !important; }
+header { flex-wrap: wrap !important; row-gap: 8px; }
+header .stat { white-space: nowrap; }
+header .ewnav { flex-wrap: wrap; }
 @keyframes ewrecdot { 0%,100%{opacity:1} 50%{opacity:.3} }
 .recdot.on { animation: ewrecdot 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce){ .recdot.on { animation:none } }

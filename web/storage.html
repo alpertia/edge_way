@@ -263,7 +263,9 @@
     el('chipAge').textContent = d.cache_age_s != null ? 'veri ' + fmtDur(Math.max(d.cache_age_s, 60)) + ' önce' : 'anlık';
 
     var cost = d.cost || {};
-    el('vTotal').innerHTML = (cost.total_usd_per_month != null ? cost.total_usd_per_month.toFixed(2) : '—') + ' <small>USD</small>';
+    var st2 = Math.round((cost.storage_usd_per_month || 0) * 100) / 100;
+    var rq2 = Math.round((cost.request_usd_per_month || 0) * 100) / 100;
+    el('vTotal').innerHTML = (st2 + rq2).toFixed(2) + ' <small>USD</small>';
     el('vSplit').textContent = 'depolama ' + usd(cost.storage_usd_per_month) + ' + istek ' + usd(cost.request_usd_per_month);
 
     var cloud = d.cloud || {};
