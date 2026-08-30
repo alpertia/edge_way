@@ -490,8 +490,9 @@ def _ew_nav(path: str) -> str:
             % (href, "#4a7dfc" if on else "#2b3a5c", "#2f5bd0" if on else "#16213a",
                "#ffffff" if on else "#c7d3e8", label)
         )
-    return ('<div id="ewnav" style="position:fixed;top:12px;right:14px;z-index:2147483000;'
-            'display:flex;gap:7px;font:500 13px/1 system-ui,-apple-system,sans-serif">'
+    return ('<div id="ewnav" style="display:flex;gap:7px;align-items:center;'
+            'padding:10px 16px;background:#0b1220;border-bottom:1px solid #1e2a44;'
+            'font:500 13px/1 system-ui,-apple-system,sans-serif">'
             + "".join(items) + "</div>")
 
 
@@ -502,8 +503,10 @@ async def ew_nav_middleware(request: Request, call_next):
         return resp
     chunks = [chunk async for chunk in resp.body_iterator]
     text = b"".join(chunks).decode("utf-8", "replace")
-    if "</body>" in text and 'id="ewnav"' not in text:
-        text = text.replace("</body>", _ew_nav(request.url.path) + "</body>", 1)
+    import re as _re
+    hit = _re.search(r"<body[^>]*>", text, _re.I)
+    if hit and 'id="ewnav"' not in text:
+        text = text[:hit.end()] + _ew_nav(request.url.path) + text[hit.end():]
     return HTMLResponse(text, status_code=resp.status_code)
 
 
