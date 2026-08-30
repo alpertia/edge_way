@@ -804,5 +804,85 @@ document.addEventListener('visibilitychange', () => {
   startTicker();
 })();
 </script>
+<script>
+/* REC-BADGE-v1 — kayit rozeti kameranin KENDI kutucugunda, nabiz atarak.
+   Mevcut doseme koduna dokunmaz; TILES uzerinden rozetleri senkron tutar. */
+(function () {
+  var RECSET = null;
+  var css = document.createElement('style');
+  css.textContent =
+    '@keyframes ewrec{0%,100%{opacity:1}50%{opacity:.3}}' +
+    '.ewrec{position:absolute;top:8px;right:8px;z-index:5;display:flex;align-items:center;gap:6px;' +
+    'padding:5px 10px;border-radius:14px;font:700 11px/1 system-ui,sans-serif;letter-spacing:.04em;' +
+    'cursor:pointer;user-select:none;border:1px solid transparent}' +
+    '.ewrec.on{background:#d93a3f;color:#fff;border-color:#ff8f92}' +
+    '.ewrec.off{background:rgba(13,21,38,.78);color:#8fa2c0;border-color:#2b3a5c}' +
+    '.ewrec .dot{width:8px;height:8px;border-radius:50%;background:currentColor}' +
+    '.ewrec.on .dot{background:#fff;animation:ewrec 2s ease-in-out infinite}' +
+    '.ewrec.busy{opacity:.45;pointer-events:none}' +
+    '@media (prefers-reduced-motion: reduce){.ewrec.on .dot{animation:none}}';
+  document.head.appendChild(css);
+
+  function tok() {
+    var d = localStorage.getItem('edgeway_token') || localStorage.getItem('token');
+    if (d) return d;
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (/token/i.test(k)) { var v = localStorage.getItem(k); if (v) return v; }
+    }
+    return '';
+  }
+  function hdr(j) {
+    var h = {}, t = tok();
+    if (t) h.Authorization = 'Bearer ' + t;
+    if (j) h['Content-Type'] = 'application/json';
+    return h;
+  }
+  function fetchRec() {
+    return fetch('/api/cameras/record', { headers: hdr(false) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d) RECSET = new Set(d.recording); })
+      .catch(function () {});
+  }
+  function toggle(name, badge) {
+    if (!RECSET) return;
+    var on = !RECSET.has(name);
+    badge.classList.add('busy');
+    fetch('/api/cameras/record', { method: 'POST', headers: hdr(true),
+      body: JSON.stringify({ cam: name, on: on }) })
+      .then(function (r) {
+        if (r.ok) return r.json();
+        return r.json().then(function (j) { throw new Error(j.detail || 'hata'); });
+      })
+      .then(function (res) { RECSET = new Set(res.recording); sync(); })
+      .catch(function (e) {
+        if (e instanceof TypeError) { if (on) RECSET.add(name); else RECSET.delete(name); sync(); return; }
+        alert('Kayit degistirilemedi: ' + e.message);
+      })
+      .finally(function () { badge.classList.remove('busy'); });
+  }
+  function sync() {
+    if (typeof TILES === 'undefined' || !RECSET) return;
+    TILES.forEach(function (t) {
+      if (!t || !t.wrap) return;
+      var b = t.wrap.querySelector('.ewrec');
+      if (!b) {
+        b = document.createElement('div');
+        b.className = 'ewrec';
+        b.innerHTML = '<span class="dot"></span><span class="txt"></span>';
+        b.title = 'Kaydi ac / kapat';
+        b.addEventListener('click', function (ev) { ev.stopPropagation(); toggle(t.name, b); });
+        t.wrap.appendChild(b);
+      }
+      var on = RECSET.has(t.name);
+      b.className = 'ewrec ' + (on ? 'on' : 'off');
+      b.querySelector('.txt').textContent = on ? 'REC' : 'KAYIT KAPALI';
+    });
+  }
+  fetchRec().then(sync);
+  setInterval(function () { fetchRec().then(sync); }, 30000);
+  setInterval(sync, 1000);
+})();
+</script>
 </body>
 </html>

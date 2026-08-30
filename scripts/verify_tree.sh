@@ -71,4 +71,5 @@ check edgeway/storage.py "uploader_timer_state" "panel config i degil sistemi go
 check edgeway/api/main.py "ew_nav_middleware" "menu her sayfaya sunucudan gelir"
 check edgeway/config.py "RECORD_CAMERAS" "kamera basina kayit secimi"
 check edgeway/api/main.py "api/cameras/record" "canlidan kayit ac kapa ucu"
+check web/demo.html "REC-BADGE-v1" "kayit rozeti kutucugun uzerinde ve tiklanabilir"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
