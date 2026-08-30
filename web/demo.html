@@ -83,7 +83,11 @@
 </style>
 <style>
 /* CAMGRID-v2 — kamera listesi en altta, tam genislik. Rozet ismin yaninda, nabiz atar. */
-main { grid-template-columns: minmax(0,1fr) 296px !important; }
+main { grid-template-columns: minmax(0,1fr) 560px !important; }
+@media (max-width:1400px){ main { grid-template-columns: minmax(0,1fr) !important; } }
+#jogWrap { align-items: flex-start !important; }
+#jogWrap #cal { min-width: 296px; }
+.caldisabled { opacity:.45; pointer-events:none; }
 main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
 @media (max-width:1200px){ main { grid-template-columns: minmax(0,1fr) !important; } }
 @media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
@@ -910,5 +914,42 @@ document.addEventListener('visibilitychange', () => {
   setInterval(sync, 1000);
 })();
 </script>
-</body>
+<script>
+/* CAL-BESIDE-CLOCK-v1 — takvim saatin yanina tasinir; 1 gunden kisa saklamada pasif. */
+(function () {
+  function tok() {
+    var v = localStorage.getItem('edgeway_token') || localStorage.getItem('token') || '';
+    v = String(v).trim();
+    if (v.charAt(0) === '"' && v.charAt(v.length - 1) === '"') v = v.slice(1, -1);
+    return /^[\x21-\x7E]+$/.test(v) ? v : '';
+  }
+  function place() {
+    var cal = document.getElementById('cal'), jw = document.getElementById('jogWrap');
+    if (cal && jw && cal.parentElement !== jw) jw.appendChild(cal);
+  }
+  function gate() {
+    var t = tok();
+    fetch('/api/storage/cost', { headers: t ? { Authorization: 'Bearer ' + t } : {} })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (dd) {
+        if (!dd) return;
+        var cal = document.getElementById('cal'); if (!cal) return;
+        var short = (dd.retention === '1h' || dd.retention === '12h');
+        cal.classList.toggle('caldisabled', short);
+        var note = document.getElementById('calnote');
+        if (!note) {
+          note = document.createElement('div');
+          note.id = 'calnote';
+          note.style.cssText = 'font-size:11px;color:#7f8fa8;margin-top:6px;width:100%';
+          if (cal.parentElement) cal.parentElement.appendChild(note);
+        }
+        note.textContent = short ? 'saklama 1 günden az — takvim kapalı' : '';
+      })
+      .catch(function () {});
+  }
+  place(); gate();
+  setInterval(place, 1000);
+  setInterval(gate, 60000);
+})();
+</script></body>
 </html>

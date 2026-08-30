@@ -73,4 +73,5 @@ check edgeway/api/main.py "api/cameras/record" "canlidan kayit ac kapa ucu"
 check web/demo.html "REC-BADGE-v1" "kayit rozeti kutucugun uzerinde ve tiklanabilir"
 check web/demo.html "CAMGRID-v2" "kamera listesi altta, rozet ismin yaninda"
 check web/storage.html "ewnav" "dort sayfada ayni menu"
+check web/demo.html "CAL-BESIDE-CLOCK-v1" "takvim saatin yaninda, kisa saklamada pasif"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

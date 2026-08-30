@@ -227,8 +227,14 @@
     return fetch(path, { method: 'POST', headers: headers(true), body: JSON.stringify(body) })
       .then(function (r) {
         if (r.status === 401) throw new Error('yetkisiz');
-        if (!r.ok) return r.json().then(function (j) { throw new Error(j.detail || ('HTTP ' + r.status)); });
-        return r.json();
+        if (!r.ok) {
+          return r.text().then(function (t) {
+            var m = '';
+            try { m = JSON.parse(t).detail; } catch (e) { m = ''; }
+            throw new Error(m || ('HTTP ' + r.status));
+          });
+        }
+        return {};
       })
       .catch(function (e) {
         if (e instanceof TypeError) return { restarting: true };
