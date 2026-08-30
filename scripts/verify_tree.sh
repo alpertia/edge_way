@@ -65,4 +65,7 @@ check deploy/install.sh "edgeway-sweeper.timer" "supurucu kurulumda etkinlesir"
 check edgeway/storage.py "buluta cikmadigi icin korundu" "yuklenmemis kayit asla silinmez"
 check web/storage.html "api/storage/cost" "panel veriyi API den alir"
 check edgeway/api/main.py "api/storage/cost" "depolama maliyet ucu"
+check edgeway/api/main.py "api/storage/policy" "panelden saklama ve mod degistirme"
+check edgeway/api/main.py "YALNIZCA verilen anahtarlari" "env yamasi digerlerini silmez"
+check edgeway/storage.py "uploader_timer_state" "panel config i degil sistemi gosterir"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

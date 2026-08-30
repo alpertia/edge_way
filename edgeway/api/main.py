@@ -252,3 +252,225 @@ def api_storage_cost() -> dict:
 def storage_page() -> str:
     """STORAGE-v1: depolama ve maliyet yonetim sayfasi."""
     return (WEB_DIR / "storage.html").read_text(encoding="utf-8")
+
+
+STORAGE_APPLY_CMD = "sudo /usr/local/sbin/edgeway-apply-env"
+STORAGE_RETENTIONS = ("1h", "12h", "24h", "3d", "7d", "14d", "1m", "3m", "6m", "1y", "2y")
+STORAGE_MODES = ("off", "continuous", "events", "both")
+
+
+def _env_patch(updates: dict) -> None:
+    """STORAGE-v1: mevcut env'i okur, YALNIZCA verilen anahtarlari degistirir.
+    Sihirbaz gibi sifirdan yazmaz — S3 anahtarlari gibi degerler korunur."""
+    import subprocess as _sp
+    import tempfile as _tf
+    lines = Path("/etc/edgeway/edgeway.env").read_text(encoding="utf-8").splitlines()
+    seen = set()
+    out = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip() if "=" in line else ""
+        if key in updates:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            out.append(line)
+    for key, val in updates.items():
+        if key not in seen:
+            out.append(f"{key}={val}")
+    body = "\n".join(out) + "\n"
+    if "EDGEWAY_CAMERAS=" not in body:
+        raise HTTPException(status_code=500, detail="env bozuk: EDGEWAY_CAMERAS yok")
+    with _tf.NamedTemporaryFile("w", delete=False, suffix=".env") as fh:
+        fh.write(body)
+        tmp = fh.name
+    res = _sp.run([*STORAGE_APPLY_CMD.split(), tmp], capture_output=True, text=True, timeout=60)
+    if res.returncode != 0:
+        raise HTTPException(status_code=500, detail=res.stderr.strip() or "env uygulanamadi")
+
+
+@app.post("/api/storage/policy", dependencies=[Depends(auth)])
+async def api_storage_policy(req: Request) -> dict:
+    """STORAGE-v1: saklama suresi ve yukleme modu.
+    Iki retention anahtarini BIRLIKTE yazar; supurucu ile segmenter ayrilmaz."""
+    import math as _math
+    from edgeway import storage as _storage
+    body = await req.json()
+    updates: dict = {}
+    ret = str(body.get("retention", "") or "").strip()
+    mode = str(body.get("upload_mode", "") or "").strip()
+    if ret:
+        if ret not in STORAGE_RETENTIONS:
+            raise HTTPException(status_code=422, detail="gecersiz saklama suresi")
+        updates["EDGEWAY_RETENTION"] = ret
+        updates["EDGEWAY_RETENTION_DAYS"] = str(
+            max(1, _math.ceil(_storage.RETENTION_SECONDS[ret] / 86400))
+        )
+    if mode:
+        if mode not in STORAGE_MODES:
+            raise HTTPException(status_code=422, detail="gecersiz yukleme modu")
+        updates["EDGEWAY_UPLOAD_MODE"] = mode
+    if not updates:
+        raise HTTPException(status_code=422, detail="degisiklik yok")
+    _env_patch(updates)
+    return {"ok": True, "applied": updates}
+
+
+@app.post("/api/storage/purge", dependencies=[Depends(auth)])
+async def api_storage_purge(req: Request) -> dict:
+    """STORAGE-v1: buluttaki kayitlari siler. Sabitlenmis prefix korunur."""
+    from edgeway import storage as _storage
+    body = await req.json()
+    if str(body.get("confirm", "")).strip() != config.DEVICE_ID:
+        raise HTTPException(status_code=422, detail="onay metni cihaz adiyla eslesmiyor")
+    try:
+        return _storage.purge_cloud(apply=True)
+    except _storage.StorageError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+STORAGE_APPLY_CMD = "sudo /usr/local/sbin/edgeway-apply-env"
+STORAGE_RETENTIONS = ("1h", "12h", "24h", "3d", "7d", "14d", "1m", "3m", "6m", "1y", "2y")
+STORAGE_MODES = ("off", "continuous", "events", "both")
+
+
+def _env_patch(updates: dict) -> None:
+    """STORAGE-v1: mevcut env'i okur, YALNIZCA verilen anahtarlari degistirir.
+    Sihirbaz gibi sifirdan yazmaz — S3 anahtarlari gibi degerler korunur."""
+    import subprocess as _sp
+    import tempfile as _tf
+    lines = Path("/etc/edgeway/edgeway.env").read_text(encoding="utf-8").splitlines()
+    seen = set()
+    out = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip() if "=" in line else ""
+        if key in updates:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            out.append(line)
+    for key, val in updates.items():
+        if key not in seen:
+            out.append(f"{key}={val}")
+    body = "\n".join(out) + "\n"
+    if "EDGEWAY_CAMERAS=" not in body:
+        raise HTTPException(status_code=500, detail="env bozuk: EDGEWAY_CAMERAS yok")
+    with _tf.NamedTemporaryFile("w", delete=False, suffix=".env") as fh:
+        fh.write(body)
+        tmp = fh.name
+    res = _sp.run([*STORAGE_APPLY_CMD.split(), tmp], capture_output=True, text=True, timeout=60)
+    if res.returncode != 0:
+        raise HTTPException(status_code=500, detail=res.stderr.strip() or "env uygulanamadi")
+
+
+@app.post("/api/storage/policy", dependencies=[Depends(auth)])
+async def api_storage_policy(req: Request) -> dict:
+    """STORAGE-v1: saklama suresi ve yukleme modu.
+    Iki retention anahtarini BIRLIKTE yazar; supurucu ile segmenter ayrilmaz."""
+    import math as _math
+    from edgeway import storage as _storage
+    body = await req.json()
+    updates: dict = {}
+    ret = str(body.get("retention", "") or "").strip()
+    mode = str(body.get("upload_mode", "") or "").strip()
+    if ret:
+        if ret not in STORAGE_RETENTIONS:
+            raise HTTPException(status_code=422, detail="gecersiz saklama suresi")
+        updates["EDGEWAY_RETENTION"] = ret
+        updates["EDGEWAY_RETENTION_DAYS"] = str(
+            max(1, _math.ceil(_storage.RETENTION_SECONDS[ret] / 86400))
+        )
+    if mode:
+        if mode not in STORAGE_MODES:
+            raise HTTPException(status_code=422, detail="gecersiz yukleme modu")
+        updates["EDGEWAY_UPLOAD_MODE"] = mode
+    if not updates:
+        raise HTTPException(status_code=422, detail="degisiklik yok")
+    _env_patch(updates)
+    return {"ok": True, "applied": updates}
+
+
+@app.post("/api/storage/purge", dependencies=[Depends(auth)])
+async def api_storage_purge(req: Request) -> dict:
+    """STORAGE-v1: buluttaki kayitlari siler. Sabitlenmis prefix korunur."""
+    from edgeway import storage as _storage
+    body = await req.json()
+    if str(body.get("confirm", "")).strip() != config.DEVICE_ID:
+        raise HTTPException(status_code=422, detail="onay metni cihaz adiyla eslesmiyor")
+    try:
+        return _storage.purge_cloud(apply=True)
+    except _storage.StorageError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+STORAGE_APPLY_CMD = "sudo /usr/local/sbin/edgeway-apply-env"
+STORAGE_RETENTIONS = ("1h", "12h", "24h", "3d", "7d", "14d", "1m", "3m", "6m", "1y", "2y")
+STORAGE_MODES = ("off", "continuous", "events", "both")
+
+
+def _env_patch(updates: dict) -> None:
+    """STORAGE-v1: mevcut env'i okur, YALNIZCA verilen anahtarlari degistirir.
+    Sihirbaz gibi sifirdan yazmaz — S3 anahtarlari gibi degerler korunur."""
+    import subprocess as _sp
+    import tempfile as _tf
+    lines = Path("/etc/edgeway/edgeway.env").read_text(encoding="utf-8").splitlines()
+    seen = set()
+    out = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip() if "=" in line else ""
+        if key in updates:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        else:
+            out.append(line)
+    for key, val in updates.items():
+        if key not in seen:
+            out.append(f"{key}={val}")
+    body = "\n".join(out) + "\n"
+    if "EDGEWAY_CAMERAS=" not in body:
+        raise HTTPException(status_code=500, detail="env bozuk: EDGEWAY_CAMERAS yok")
+    with _tf.NamedTemporaryFile("w", delete=False, suffix=".env") as fh:
+        fh.write(body)
+        tmp = fh.name
+    res = _sp.run([*STORAGE_APPLY_CMD.split(), tmp], capture_output=True, text=True, timeout=60)
+    if res.returncode != 0:
+        raise HTTPException(status_code=500, detail=res.stderr.strip() or "env uygulanamadi")
+
+
+@app.post("/api/storage/policy", dependencies=[Depends(auth)])
+async def api_storage_policy(req: Request) -> dict:
+    """STORAGE-v1: saklama suresi ve yukleme modu.
+    Iki retention anahtarini BIRLIKTE yazar; supurucu ile segmenter ayrilmaz."""
+    import math as _math
+    from edgeway import storage as _storage
+    body = await req.json()
+    updates: dict = {}
+    ret = str(body.get("retention", "") or "").strip()
+    mode = str(body.get("upload_mode", "") or "").strip()
+    if ret:
+        if ret not in STORAGE_RETENTIONS:
+            raise HTTPException(status_code=422, detail="gecersiz saklama suresi")
+        updates["EDGEWAY_RETENTION"] = ret
+        updates["EDGEWAY_RETENTION_DAYS"] = str(
+            max(1, _math.ceil(_storage.RETENTION_SECONDS[ret] / 86400))
+        )
+    if mode:
+        if mode not in STORAGE_MODES:
+            raise HTTPException(status_code=422, detail="gecersiz yukleme modu")
+        updates["EDGEWAY_UPLOAD_MODE"] = mode
+    if not updates:
+        raise HTTPException(status_code=422, detail="degisiklik yok")
+    _env_patch(updates)
+    return {"ok": True, "applied": updates}
+
+
+@app.post("/api/storage/purge", dependencies=[Depends(auth)])
+async def api_storage_purge(req: Request) -> dict:
+    """STORAGE-v1: buluttaki kayitlari siler. Sabitlenmis prefix korunur."""
+    from edgeway import storage as _storage
+    body = await req.json()
+    if str(body.get("confirm", "")).strip() != config.DEVICE_ID:
+        raise HTTPException(status_code=422, detail="onay metni cihaz adiyla eslesmiyor")
+    try:
+        return _storage.purge_cloud(apply=True)
+    except _storage.StorageError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

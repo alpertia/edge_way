@@ -275,6 +275,54 @@ def cmd_lifecycle(apply: bool, write: str) -> int:
     return 0
 
 
+def purge_cloud(apply: bool = False) -> dict:
+    """Buluttaki TUM kayitlari siler (yasa bakmadan). Sabitlenmis prefix korunur.
+
+    Yasam dongusu kuralindan farki: bu, kullanicinin panelden verdigi acik
+    komuttur ve hemen calisir.
+    """
+    if not getattr(config, "S3_BUCKET", ""):
+        raise StorageError("S3_BUCKET tanimli degil")
+    client = s3_client()
+    bucket = config.S3_BUCKET
+    prefix = s3_prefix()
+    pinned = pinned_prefixes()
+    batch: list[dict] = []
+    count = 0
+    total = 0
+
+    def flush(items: list[dict]) -> None:
+        if not items or not apply:
+            return
+        client.delete_objects(Bucket=bucket, Delete={"Objects": items, "Quiet": True})
+
+    for obj in iter_objects(client, bucket, prefix):
+        if obj["Key"].startswith(pinned):
+            continue
+        count += 1
+        total += obj["Size"]
+        batch.append({"Key": obj["Key"]})
+        if len(batch) == 1000:
+            flush(batch)
+            batch = []
+    flush(batch)
+    return {"applied": apply, "objects": count, "bytes": total,
+            "gib": round(total / GIB, 3), "pinned_kept": list(pinned)}
+
+
+def uploader_timer_state() -> str:
+    """Yukleyici timer'inin GERCEK durumu. Config ne diyor degil, sistem ne yapiyor."""
+    import subprocess
+    try:
+        r = subprocess.run(["systemctl", "is-active", "edgeway-uploader.timer"],
+                           capture_output=True, text=True, timeout=5)
+        state = (r.stdout or "").strip()
+        known = ("active", "inactive", "failed", "activating", "deactivating", "unknown")
+        return state if state in known else "bilinmiyor"
+    except (OSError, subprocess.SubprocessError):
+        return "bilinmiyor"
+
+
 def stats() -> dict:
     now = datetime.now(timezone.utc)
     transitions = transitions_for(retention_days())
@@ -371,6 +419,7 @@ def stats() -> dict:
         "device": config.DEVICE_ID,
         "retention": retention_key(),
         "upload_mode": config.UPLOAD_MODE,
+        "uploader_timer": uploader_timer_state(),
         "segment_seconds": config.SEGMENT_SECONDS,
         "cloud": {
             "enabled": cloud_enabled(),
