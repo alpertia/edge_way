@@ -72,4 +72,5 @@ check edgeway/config.py "RECORD_CAMERAS" "kamera basina kayit secimi"
 check edgeway/api/main.py "api/cameras/record" "canlidan kayit ac kapa ucu"
 check web/demo.html "REC-BADGE-v1" "kayit rozeti kutucugun uzerinde ve tiklanabilir"
 check web/demo.html "CAMGRID-v2" "kamera listesi altta, rozet ismin yaninda"
+check web/storage.html "ewnav" "dort sayfada ayni menu"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
