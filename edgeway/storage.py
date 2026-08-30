@@ -275,7 +275,7 @@ def cmd_lifecycle(apply: bool, write: str) -> int:
     return 0
 
 
-def cmd_stats() -> int:
+def stats() -> dict:
     now = datetime.now(timezone.utc)
     transitions = transitions_for(retention_days())
 
@@ -286,8 +286,17 @@ def cmd_stats() -> int:
     oldest = None
     newest = None
 
+    cloud_error = ""
     if cloud_enabled():
-        client = s3_client()
+        try:
+            client = s3_client()
+        except StorageError as exc:
+            client = None
+            cloud_error = str(exc)
+    else:
+        client = None
+
+    if client is not None:
         prefix = s3_prefix()
         for obj in iter_objects(client, config.S3_BUCKET, prefix):
             size = obj["Size"]
@@ -365,6 +374,7 @@ def cmd_stats() -> int:
         "segment_seconds": config.SEGMENT_SECONDS,
         "cloud": {
             "enabled": cloud_enabled(),
+            "error": cloud_error,
             "bucket": getattr(config, "S3_BUCKET", ""),
             "objects": total_objects,
             "bytes": total_bytes,
@@ -382,12 +392,19 @@ def cmd_stats() -> int:
         "local": local,
     }
 
-    out = json.dumps(payload, ensure_ascii=False, indent=2)
-    print(out)
     try:
-        STATS_FILE.write_text(out, encoding="utf-8")
+        STATS_FILE.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
     except OSError as exc:
         print("istatistik dosyasi yazilamadi: %s" % exc, file=sys.stderr)
+    return payload
+
+
+def cmd_stats(quiet: bool) -> int:
+    payload = stats()
+    if not quiet:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -402,7 +419,8 @@ def main(argv: list[str] | None = None) -> int:
     p_life.add_argument("--apply", action="store_true")
     p_life.add_argument("--write", default="", help="kurali bu dosyaya da yaz")
 
-    sub.add_parser("stats", help="panel icin JSON uret")
+    p_stats = sub.add_parser("stats", help="panel icin JSON uret")
+    p_stats.add_argument("--quiet", action="store_true", help="sadece dosyaya yaz")
 
     args = parser.parse_args(argv)
     try:
@@ -410,7 +428,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_sweep(args.apply)
         if args.command == "lifecycle":
             return cmd_lifecycle(args.apply, args.write)
-        return cmd_stats()
+        return cmd_stats(args.quiet)
     except StorageError as exc:
         print("hata: %s" % exc, file=sys.stderr)
         return 2

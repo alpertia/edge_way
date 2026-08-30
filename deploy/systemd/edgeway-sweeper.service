@@ -8,3 +8,4 @@ User=edgeway
 EnvironmentFile=/etc/edgeway/edgeway.env
 WorkingDirectory=/opt/edgeway
 ExecStart=/opt/edgeway/.venv/bin/python -m edgeway.storage sweep --apply
+ExecStart=/opt/edgeway/.venv/bin/python -m edgeway.storage stats --quiet

@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Depolama ve Maliyet — EdgeWay</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d1526'/%3E%3Ccircle cx='17' cy='17' r='7' fill='%23e5484d'/%3E%3Ctext x='32' y='47' font-family='system-ui,sans-serif' font-size='30' font-weight='700' fill='%23eaf0fb' text-anchor='middle'%3EeW%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0d1526; --panel: #131d33; --line: #212e4d; --line-soft: #1b2842;
+    --ink: #eaf0fb; --ink-2: #9fb0cd; --ink-3: #6b7d9c;
+    --blue: #4a7dfc; --blue-2: #2f5bd0; --red: #e5484d; --amber: #e0a145; --green: #3ecf8e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+  }
+  a { color: #6f9bff; text-decoration: none; }
+  a:hover { color: #a5c0ff; }
+  .num { font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 24px 48px; display: flex; flex-direction: column; gap: 20px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 15px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 5px; letter-spacing: -0.01em; }
+  .sub { font-size: 13px; color: var(--ink-3); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { background: #16213a; border: 1px solid var(--line); border-radius: 6px; padding: 6px 11px; font-size: 12.5px; color: var(--ink-2); }
+  button {
+    font: inherit; color: var(--ink); background: #16213a; border: 1px solid #2b3a5c;
+    border-radius: 6px; padding: 7px 14px; cursor: pointer;
+  }
+  button:hover { border-color: var(--blue); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 15px 17px; display: flex; flex-direction: column; gap: 8px; }
+  .k { font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.03em; }
+  .v { font-size: 25px; font-weight: 600; letter-spacing: -0.02em; }
+  .v small { font-size: 14px; font-weight: 500; color: var(--ink-2); }
+  .note { font-size: 12px; color: var(--ink-3); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 17px 19px 19px; display: flex; flex-direction: column; gap: 13px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.03em; font-weight: 500; padding: 0 0 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
+  tr:last-child td { border-bottom: none; }
+  .r { text-align: right; }
+  .bar { height: 7px; background: var(--line-soft); border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--blue); border-radius: 4px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 9px; vertical-align: -1px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 7px; }
+  .opt { font-size: 13px; color: var(--ink-2); padding: 7px 14px; border-radius: 6px; background: #0f182b; border: 1px solid var(--line); }
+  .opt.on { background: var(--blue-2); border-color: var(--blue); color: #fff; font-weight: 500; }
+  .warn { display: flex; gap: 10px; background: #1a2338; border: 1px solid #3d3520; border-radius: 7px; padding: 11px 13px; font-size: 12.5px; color: #c8b48c; line-height: 1.5; }
+  .err { display: flex; gap: 10px; background: #241a1c; border: 1px solid #5c2a2e; border-radius: 7px; padding: 11px 13px; font-size: 12.5px; color: #ffb3b6; line-height: 1.5; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; align-items: start; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .muted { color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Depolama ve Maliyet</h1>
+      <div class="sub">Bulut yedekleme, saklama politikası ve yerel disk</div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="chipSite">—</span>
+      <span class="chip" id="chipDevice">—</span>
+      <span class="chip" id="chipAge">—</span>
+      <button id="btnReload">Yenile</button>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+
+  <div class="cards">
+    <div class="card"><div class="k">AYLIK TAHMİNİ</div><div class="v num" id="vTotal">—</div><div class="note num" id="vSplit">—</div></div>
+    <div class="card"><div class="k">BULUTTA</div><div class="v num" id="vCloud">—</div><div class="note num" id="vObjects">—</div></div>
+    <div class="card"><div class="k">SAKLAMA</div><div class="v" id="vRetention">—</div><div class="note" id="vMode">—</div></div>
+    <div class="card"><div class="k">GERİ SARMA</div><div class="v num" id="vRewind">—</div><div class="note num" id="vPending">—</div></div>
+  </div>
+
+  <section>
+    <div class="head"><h2>Katman dağılımı</h2><span class="note">Katman, dosyanın yaşına göre otomatik belirlenir</span></div>
+    <table><thead><tr><th>Katman</th><th class="r">Boyut</th><th class="r">Nesne</th><th class="r">Aylık</th></tr></thead>
+      <tbody id="tiers"><tr><td colspan="4" class="muted">yükleniyor…</td></tr></tbody></table>
+    <div class="warn" id="tierWarn" hidden></div>
+  </section>
+
+  <section>
+    <div class="head"><h2>Kamera başına</h2><span class="note" id="camNote">—</span></div>
+    <table><thead><tr><th>Kamera</th><th>Günlük</th><th class="r">Bulutta</th><th class="r">Nesne</th><th class="r">Aylık</th></tr></thead>
+      <tbody id="cams"><tr><td colspan="5" class="muted">yükleniyor…</td></tr></tbody></table>
+  </section>
+
+  <div class="two">
+    <section>
+      <div class="head"><h2>Politika</h2><span class="note">Şu anki ayar</span></div>
+      <div class="opts" id="retOpts"></div>
+      <div class="note">Ayarı bu sayfadan değiştirme bir sonraki adımda geliyor. Şu an env üzerinden yönetiliyor.</div>
+    </section>
+
+    <section>
+      <div class="head"><h2>Yerel disk</h2><span class="note num" id="diskPct">—</span></div>
+      <div class="bar"><i id="diskBar" style="width:0%"></i></div>
+      <table><tbody id="localRows"></tbody></table>
+    </section>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var el = function (id) { return document.getElementById(id); };
+  var GIB = 1024 * 1024 * 1024;
+
+  function token() {
+    var direct = localStorage.getItem('edgeway_token') || localStorage.getItem('token');
+    if (direct) return direct;
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (/token/i.test(k)) { var v = localStorage.getItem(k); if (v) return v; }
+    }
+    return '';
+  }
+
+  function gib(bytes) { return (bytes / GIB); }
+
+  function fmtSize(bytes) {
+    if (!bytes) return '0 B';
+    var g = gib(bytes);
+    if (g >= 1) return g.toFixed(2) + ' GiB';
+    var m = bytes / (1024 * 1024);
+    if (m >= 1) return m.toFixed(1) + ' MiB';
+    return (bytes / 1024).toFixed(0) + ' KiB';
+  }
+
+  function fmtDuration(seconds) {
+    if (!seconds) return '—';
+    var h = Math.floor(seconds / 3600), m = Math.round((seconds % 3600) / 60);
+    if (h > 48) return Math.round(h / 24) + ' gün';
+    if (h) return h + ' sa ' + m + ' dk';
+    return m + ' dk';
+  }
+
+  function usd(n) { return (n == null ? '—' : n.toFixed(2) + ' USD'); }
+
+  function banner(kind, text) {
+    el('banner').innerHTML = text ? '<div class="' + kind + '">' + text + '</div>' : '';
+  }
+
+  var TIER_COLOR = { STANDARD: '#4a7dfc', GLACIER_IR: '#3a5aa8', DEEP_ARCHIVE: '#2a3d6b' };
+  var TIER_NAME = { STANDARD: 'Standard', GLACIER_IR: 'Glacier IR', DEEP_ARCHIVE: 'Deep Archive' };
+  var RET_OPTS = ['1h', '12h', '24h', '3d', '7d', '14d', '1m', '3m', '6m', '1y', '2y'];
+  var RET_LABEL = {
+    '1h': '1 saat', '12h': '12 saat', '24h': '24 saat', '3d': '3 gün', '7d': '7 gün',
+    '14d': '14 gün', '1m': '1 ay', '3m': '3 ay', '6m': '6 ay', '1y': '1 yıl', '2y': '2 yıl'
+  };
+  var MODE_LABEL = { continuous: 'Sürekli yükleme', events: 'Olay bazlı', both: 'Sürekli + olay', off: 'Yükleme kapalı' };
+
+  function render(d) {
+    el('chipSite').textContent = d.site || '—';
+    el('chipDevice').textContent = d.device || '—';
+    el('chipAge').textContent = d.cache_age_s != null
+      ? 'veri ' + fmtDuration(Math.max(d.cache_age_s, 60)) + ' önce'
+      : 'anlık';
+
+    var cost = d.cost || {};
+    el('vTotal').innerHTML = (cost.total_usd_per_month != null ? cost.total_usd_per_month.toFixed(2) : '—') + ' <small>USD</small>';
+    el('vSplit').textContent = 'depolama ' + usd(cost.storage_usd_per_month) + ' + istek ' + usd(cost.request_usd_per_month);
+
+    var cloud = d.cloud || {};
+    el('vCloud').innerHTML = fmtSize(cloud.bytes || 0).replace(/ (\w+)$/, ' <small>$1</small>');
+    el('vObjects').textContent = (cloud.objects || 0).toLocaleString('tr-TR') + ' dosya';
+
+    el('vRetention').textContent = RET_LABEL[d.retention] || d.retention || '—';
+    el('vMode').textContent = (MODE_LABEL[d.upload_mode] || d.upload_mode || '—')
+      + ' · segment ' + (d.segment_seconds || '?') + ' sn';
+
+    var local = d.local || {};
+    el('vRewind').textContent = fmtDuration(local.rewind_seconds);
+    el('vPending').textContent = (local.pending_upload || 0) + ' dosya yüklenmeyi bekliyor';
+
+    if (cloud.error) {
+      banner('err', 'Bulut okunamadı: ' + cloud.error + ' — aşağıdaki bulut rakamları eksik.');
+    } else if (!cloud.enabled) {
+      banner('warn', 'Buluta yükleme kapalı. Kayıt yerelde sürüyor, bulut rakamları donmuş durumda.');
+    } else {
+      banner('', '');
+    }
+
+    var tiers = d.tiers || {};
+    var order = ['STANDARD', 'GLACIER_IR', 'DEEP_ARCHIVE'];
+    var rows = order.map(function (t) {
+      var a = tiers[t];
+      var on = !!a;
+      return '<tr>'
+        + '<td><span class="swatch" style="background:' + (on ? TIER_COLOR[t] : '#2a3852') + '"></span>'
+        + '<span' + (on ? '' : ' class="muted"') + '>' + TIER_NAME[t] + '</span></td>'
+        + '<td class="r num' + (on ? '' : ' muted') + '">' + (on ? fmtSize(a.bytes) : '—') + '</td>'
+        + '<td class="r num' + (on ? '' : ' muted') + '">' + (on ? a.objects.toLocaleString('tr-TR') : '—') + '</td>'
+        + '<td class="r num' + (on ? '' : ' muted') + '">' + (on ? usd(a.usd_per_month) : '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    el('tiers').innerHTML = rows;
+
+    var warn = el('tierWarn');
+    if (!tiers.GLACIER_IR && !tiers.DEEP_ARCHIVE) {
+      warn.hidden = false;
+      warn.textContent = 'Katmanlama 3 aydan uzun saklamada devreye girer. Glacier IR en az 90, Deep Archive en az 180 gün ücretlendirilir — kısa saklamada katman kullanmak maliyeti artırır.';
+    } else {
+      warn.hidden = true;
+    }
+
+    var cams = d.cameras || {};
+    var names = Object.keys(cams).sort();
+    var maxDaily = 0;
+    names.forEach(function (n) { maxDaily = Math.max(maxDaily, cams[n].gb_per_day || 0); });
+    el('camNote').textContent = names.length + ' kamera buluta yazmış';
+    el('cams').innerHTML = names.length ? names.map(function (n) {
+      var c = cams[n];
+      var pct = maxDaily ? Math.round((c.gb_per_day || 0) / maxDaily * 100) : 0;
+      return '<tr>'
+        + '<td>' + n + '</td>'
+        + '<td><div style="display:flex;align-items:center;gap:10px">'
+        + '<div class="bar" style="flex:1"><i style="width:' + pct + '%"></i></div>'
+        + '<span class="num" style="width:64px;color:var(--ink-2)">' + (c.gb_per_day || 0).toFixed(2) + ' GB</span></div></td>'
+        + '<td class="r num">' + fmtSize(c.bytes) + '</td>'
+        + '<td class="r num">' + c.objects.toLocaleString('tr-TR') + '</td>'
+        + '<td class="r num">' + usd(c.usd_per_month) + '</td>'
+        + '</tr>';
+    }).join('') : '<tr><td colspan="5" class="muted">bulutta kayıt yok</td></tr>';
+
+    el('retOpts').innerHTML = RET_OPTS.map(function (o) {
+      return '<span class="opt' + (o === d.retention ? ' on' : '') + '">' + RET_LABEL[o] + '</span>';
+    }).join('');
+
+    var pct = local.disk_used_pct || 0;
+    el('diskPct').textContent = pct ? pct.toFixed(1) + '%' : '—';
+    var bar = el('diskBar');
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 90 ? 'var(--red)' : (pct >= 75 ? 'var(--amber)' : 'var(--blue)');
+    el('localRows').innerHTML = [
+      ['Segment sayısı', (local.segments || 0).toLocaleString('tr-TR')],
+      ['Yerel boyut', fmtSize(local.bytes || 0)],
+      ['Disk kullanımı', fmtSize(local.disk_used_bytes || 0) + ' / ' + fmtSize(local.disk_total_bytes || 0)],
+      ['Yüklenmeyi bekleyen', (local.pending_upload || 0) + ' dosya']
+    ].map(function (r) {
+      return '<tr><td class="muted">' + r[0] + '</td><td class="r num">' + r[1] + '</td></tr>';
+    }).join('');
+  }
+
+  function load() {
+    var t = token();
+    fetch('/api/storage/cost', { headers: t ? { Authorization: 'Bearer ' + t } : {} })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('yetkisiz');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(render)
+      .catch(function (e) {
+        if (e.message === 'yetkisiz') {
+          banner('err', 'Oturum bulunamadı. Önce <a href="/demo">portale</a> giriş yapın, sonra bu sayfayı yenileyin.');
+        } else {
+          banner('err', 'Veri alınamadı: ' + e.message);
+        }
+      });
+  }
+
+  el('btnReload').addEventListener('click', load);
+  load();
+  setInterval(load, 60000);
+})();
+</script>
+</body>
+</html>

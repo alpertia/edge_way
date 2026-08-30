@@ -230,3 +230,25 @@ def _cpu_temp() -> float | None:
             return int(z.read_text()) / 1000
         except Exception:
             return None
+
+
+@app.get("/api/storage/cost", dependencies=[Depends(auth)])
+def api_storage_cost() -> dict:
+    """STORAGE-v1: maliyet ve katman ozeti. Onbellek bayatsa yeniden hesaplar."""
+    import json as _json
+    import time as _time
+    from edgeway import storage
+    try:
+        payload = _json.loads(storage.STATS_FILE.read_text(encoding="utf-8"))
+        payload["cache_age_s"] = int(_time.time() - storage.STATS_FILE.stat().st_mtime)
+        if payload["cache_age_s"] < 900:
+            return payload
+    except (OSError, ValueError):
+        pass
+    return storage.stats()
+
+
+@app.get("/storage", response_class=HTMLResponse)
+def storage_page() -> str:
+    """STORAGE-v1: depolama ve maliyet yonetim sayfasi."""
+    return (WEB_DIR / "storage.html").read_text(encoding="utf-8")

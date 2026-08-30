@@ -63,4 +63,6 @@ check edgeway/storage.py "pinned_prefixes" "sabitlenmis kayitlar korunur"
 check deploy/systemd/edgeway-sweeper.timer "OnUnitActiveSec" "supurucu zamanlayici"
 check deploy/install.sh "edgeway-sweeper.timer" "supurucu kurulumda etkinlesir"
 check edgeway/storage.py "buluta cikmadigi icin korundu" "yuklenmemis kayit asla silinmez"
+check web/storage.html "api/storage/cost" "panel veriyi API den alir"
+check edgeway/api/main.py "api/storage/cost" "depolama maliyet ucu"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
