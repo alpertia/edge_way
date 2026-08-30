@@ -88,8 +88,6 @@ main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
 @media (max-width:1200px){ main { grid-template-columns: minmax(0,1fr) !important; } }
 @media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
 #cams { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)) !important; }
-.camlbl { background:#2f5bd0 !important; color:#fff !important; font-weight:500 !important; }
-body.ewpast .camlbl { background:#39465e !important; color:#cbd6e8 !important; }
 .recdot { cursor:pointer; }
 .timecol { grid-column: 1 / -1 !important; order: -1; }
 header { flex-wrap: wrap !important; row-gap: 8px; }
@@ -910,6 +908,7 @@ document.addEventListener('visibilitychange', () => {
           t.wrap.appendChild(b);
         }
         b.textContent = icon;
+        b.style.display = isPast ? 'flex' : 'none';   /* canlida rozet yok */
       });
     }
     paintList();
