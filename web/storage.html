@@ -159,12 +159,26 @@
   var GIB = 1024 * 1024 * 1024;
   var state = { data: null, busy: false };
 
+  function clean(v) {
+    if (!v) return '';
+    v = String(v).trim();
+    if (v.charAt(0) === '"' && v.charAt(v.length - 1) === '"') v = v.slice(1, -1);
+    if (v.charAt(0) === '{') {
+      try {
+        var o = JSON.parse(v);
+        v = o.token || o.access_token || o.api_token || '';
+      } catch (e) { v = ''; }
+    }
+    v = String(v).trim();
+    return /^[\x21-\x7E]+$/.test(v) ? v : '';
+  }
+
   function token() {
-    var d = localStorage.getItem('edgeway_token') || localStorage.getItem('token');
+    var d = clean(localStorage.getItem('edgeway_token')) || clean(localStorage.getItem('token'));
     if (d) return d;
     for (var i = 0; i < localStorage.length; i++) {
       var k = localStorage.key(i);
-      if (/token/i.test(k)) { var v = localStorage.getItem(k); if (v) return v; }
+      if (/token/i.test(k)) { var v = clean(localStorage.getItem(k)); if (v) return v; }
     }
     return '';
   }
