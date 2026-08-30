@@ -58,4 +58,9 @@ check edgeway/health/engine.py "def last24h"      "24s saglik gecmisi ve bosluk 
 check edgeway/health/engine.py "days\[:2\]"        "rec_age taramasi arsivle buyumez"
 check edgeway/recorder/segmenter.py "health_loop" "saglik gecmisi yaziliyor"
 check edgeway/health/engine.py "GRACE_S"           "acilis toleransi (deploy sonrasi sahte alarm yok)"
+check edgeway/storage.py "RETENTION_SECONDS" "saklama sureleri tablosu"
+check edgeway/storage.py "pinned_prefixes" "sabitlenmis kayitlar korunur"
+check deploy/systemd/edgeway-sweeper.timer "OnUnitActiveSec" "supurucu zamanlayici"
+check deploy/install.sh "edgeway-sweeper.timer" "supurucu kurulumda etkinlesir"
+check edgeway/storage.py "buluta cikmadigi icin korundu" "yuklenmemis kayit asla silinmez"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

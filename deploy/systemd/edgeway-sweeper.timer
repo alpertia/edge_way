@@ -1,0 +1,11 @@
+[Unit]
+Description=EdgeWay saklama supurucusu zamanlayicisi
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=edgeway-sweeper.service
+
+[Install]
+WantedBy=timers.target
