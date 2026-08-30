@@ -221,43 +221,49 @@
   var LONG = { '3m': 1, '6m': 1, '1y': 1, '2y': 1 };
   var MODES = [['off','Kapalı'],['events','Olay bazlı'],['continuous','Sürekli'],['both','Sürekli + olay']];
 
-  function post(path, body) {
-    state.busy = true;
-    paintOpts();
-    return fetch(path, { method: 'POST', headers: headers(true), body: JSON.stringify(body) })
-      .then(function (r) {
-        if (r.status === 401) throw new Error('yetkisiz');
-        if (!r.ok) {
-          return r.text().then(function (t) {
-            var m = '';
-            try { m = JSON.parse(t).detail; } catch (e) { m = ''; }
-            throw new Error(m || ('HTTP ' + r.status));
-          });
-        }
-        return {};
-      })
-      .catch(function (e) {
-        if (e instanceof TypeError) return { restarting: true };
-        throw e;
-      });
-  }
-
-  function waitBack(tries) {
-    tries = tries || 0;
-    return fetch('/api/storage/cost', { headers: headers(false) })
-      .then(function (r) { if (!r.ok) throw new Error('x'); return r.json(); })
-      .catch(function () {
-        if (tries > 20) throw new Error('servis geri gelmedi');
-        return new Promise(function (res) { setTimeout(res, 1000); }).then(function () { return waitBack(tries + 1); });
-      });
+  /* OPTIMISTIC-v1 — ayar aninda yapilmis gibi gosterilir. Istek, API kendini
+     yeniden baslattigi icin cogu zaman cevapsiz olur; bu HATA DEGILDIR.
+     Gercek dogrulama arkada yapilir, tutmazsa geri alinir. */
+  function verify(patch, tries) {
+    return new Promise(function (res) { setTimeout(res, 2500); }).then(function () {
+      return fetch('/api/storage/cost', { headers: headers(false) })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d) {
+            var ok = (!patch.retention || d.retention === patch.retention)
+                  && (!patch.upload_mode || d.upload_mode === patch.upload_mode);
+            if (ok) { render(d); banner('', ''); return; }
+          }
+          if (tries > 9) { banner('err', 'Ayar uygulanmadı, eski değere dönüldü.'); load(); return; }
+          return verify(patch, tries + 1);
+        })
+        .catch(function () {
+          if (tries > 9) { banner('err', 'Ayar doğrulanamadı.'); load(); return; }
+          return verify(patch, tries + 1);
+        });
+    });
   }
 
   function applyPolicy(patch, label) {
-    banner('warn', 'Uygulanıyor: ' + label + ' — servisler yeniden başlıyor…');
-    post('/api/storage/policy', patch)
-      .then(function () { return waitBack(0); })
-      .then(function (d) { state.busy = false; render(d); banner('ok', label + ' uygulandı.'); setTimeout(function(){ banner('', ''); load(); }, 4000); })
-      .catch(function (e) { state.busy = false; paintOpts(); banner('err', 'Uygulanamadı: ' + e.message); });
+    if (state.data) {
+      if (patch.retention) state.data.retention = patch.retention;
+      if (patch.upload_mode) state.data.upload_mode = patch.upload_mode;
+      render(state.data);
+    }
+    banner('ok', label + ' uygulandı — servisler yeniden başlıyor.');
+    fetch('/api/storage/policy', { method: 'POST', headers: headers(true), body: JSON.stringify(patch) })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('yetkisiz');
+        if (r.status === 422) return r.text().then(function (t) {
+          var m = ''; try { m = JSON.parse(t).detail; } catch (e) {}
+          throw new Error(m || 'gecersiz deger');
+        });
+      })
+      .catch(function (e) {
+        if (e && e.message === 'yetkisiz') { banner('err', 'Oturum yok. Önce <a href="/demo">portale</a> girin.'); return; }
+        if (e && e.message && e.message !== 'Load failed') { banner('err', 'Reddedildi: ' + e.message); load(); return; }
+      })
+      .then(function () { return verify(patch, 0); });
   }
 
   function paintOpts() {

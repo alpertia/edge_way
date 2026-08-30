@@ -6,4 +6,5 @@ SRC="${1:?kullanim: edgeway-apply-env <tmpfile>}"
 grep -q '^EDGEWAY_CAMERAS=' "$SRC" || { echo "gecersiz env"; exit 2; }
 install -o root -g edgeway -m 640 "$SRC" /etc/edgeway/edgeway.env
 rm -f "$SRC"
-systemctl restart edgeway-api edgeway-recorder edgeway-heartbeat
+systemd-run --quiet --collect --on-active=2 --unit=edgeway-apply-restart \
+  systemctl restart edgeway-api edgeway-recorder edgeway-heartbeat
