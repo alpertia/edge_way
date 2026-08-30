@@ -474,3 +474,34 @@ async def api_storage_purge(req: Request) -> dict:
         return _storage.purge_cloud(apply=True)
     except _storage.StorageError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+EW_NAV_LINKS = (("/demo", "Canlı"), ("/storage", "Depolama"), ("/setup", "Kurulum"), ("/", "Tanıtım"))
+
+
+def _ew_nav(path: str) -> str:
+    """NAV-v1: menuyu HER html sayfaya sunucuda enjekte eder. Tek kaynak burasi."""
+    items = []
+    for href, label in EW_NAV_LINKS:
+        on = path == href
+        items.append(
+            '<a href="%s" style="text-decoration:none;border-radius:6px;padding:8px 13px;'
+            'border:1px solid %s;background:%s;color:%s">%s</a>'
+            % (href, "#4a7dfc" if on else "#2b3a5c", "#2f5bd0" if on else "#16213a",
+               "#ffffff" if on else "#c7d3e8", label)
+        )
+    return ('<div id="ewnav" style="position:fixed;top:12px;right:14px;z-index:2147483000;'
+            'display:flex;gap:7px;font:500 13px/1 system-ui,-apple-system,sans-serif">'
+            + "".join(items) + "</div>")
+
+
+@app.middleware("http")
+async def ew_nav_middleware(request: Request, call_next):
+    resp = await call_next(request)
+    if not resp.headers.get("content-type", "").startswith("text/html"):
+        return resp
+    chunks = [chunk async for chunk in resp.body_iterator]
+    text = b"".join(chunks).decode("utf-8", "replace")
+    if "</body>" in text and 'id="ewnav"' not in text:
+        text = text.replace("</body>", _ew_nav(request.url.path) + "</body>", 1)
+    return HTMLResponse(text, status_code=resp.status_code)

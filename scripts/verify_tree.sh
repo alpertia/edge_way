@@ -68,4 +68,5 @@ check edgeway/api/main.py "api/storage/cost" "depolama maliyet ucu"
 check edgeway/api/main.py "api/storage/policy" "panelden saklama ve mod degistirme"
 check edgeway/api/main.py "YALNIZCA verilen anahtarlari" "env yamasi digerlerini silmez"
 check edgeway/storage.py "uploader_timer_state" "panel config i degil sistemi gosterir"
+check edgeway/api/main.py "ew_nav_middleware" "menu her sayfaya sunucudan gelir"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1
