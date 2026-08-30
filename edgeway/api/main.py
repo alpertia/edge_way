@@ -505,3 +505,31 @@ async def ew_nav_middleware(request: Request, call_next):
     if "</body>" in text and 'id="ewnav"' not in text:
         text = text.replace("</body>", _ew_nav(request.url.path) + "</body>", 1)
     return HTMLResponse(text, status_code=resp.status_code)
+
+
+@app.get("/api/cameras/record", dependencies=[Depends(auth)])
+def api_cameras_record_get() -> dict:
+    """REC-v1: hangi kameralar kaydediliyor. Bos liste = hepsi kaydediliyor."""
+    all_cams = sorted(config.cameras())
+    sel = config.RECORD_CAMERAS or all_cams
+    return {"cameras": all_cams, "recording": [c for c in all_cams if c in sel]}
+
+
+@app.post("/api/cameras/record", dependencies=[Depends(auth)])
+async def api_cameras_record(req: Request) -> dict:
+    """REC-v1: tek kameranin KAYDINI acar/kapatir. Canli yayin etkilenmez."""
+    body = await req.json()
+    cam = str(body.get("cam", "")).strip()
+    on = bool(body.get("on"))
+    all_cams = sorted(config.cameras())
+    if cam not in all_cams:
+        raise HTTPException(status_code=422, detail="bilinmeyen kamera")
+    current = set(config.RECORD_CAMERAS or all_cams)
+    if on:
+        current.add(cam)
+    else:
+        current.discard(cam)
+    if not current:
+        raise HTTPException(status_code=422, detail="en az bir kamera kayitta kalmali")
+    _env_patch({"EDGEWAY_RECORD_CAMERAS": ",".join(c for c in all_cams if c in current)})
+    return {"ok": True, "recording": [c for c in all_cams if c in current]}

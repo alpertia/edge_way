@@ -78,8 +78,7 @@ def probe(url: str, timeout: int = 8) -> dict:
 
 
 @router.get("/setup", response_class=HTMLResponse)
-def setup_page(authorization: str | None = Header(default=None)) -> str:
-    guard(authorization)
+def setup_page() -> str:
     return (WEB_DIR / "setup.html").read_text(encoding="utf-8")
 
 

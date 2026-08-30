@@ -269,6 +269,10 @@ def main() -> None:
     signal.signal(signal.SIGINT, stop)
 
     cams = config.cameras()
+
+    if config.RECORD_CAMERAS:
+
+        cams = {k: v for k, v in cams.items() if k in config.RECORD_CAMERAS}
     if not cams:
         print("[recorder] EDGEWAY_CAMERAS bos — cikiliyor", file=sys.stderr)
         sys.exit(1)
