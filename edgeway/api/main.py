@@ -11,7 +11,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request  # LOGIN-v1
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request  # LOGIN-v1
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -259,7 +259,7 @@ STORAGE_RETENTIONS = ("1h", "12h", "24h", "3d", "7d", "14d", "1m", "3m", "6m", "
 STORAGE_MODES = ("off", "continuous", "events", "both")
 
 
-def _env_patch(updates: dict) -> None:
+def _env_patch(updates: dict) -> str:
     """STORAGE-v1: mevcut env'i okur, YALNIZCA verilen anahtarlari degistirir.
     Sihirbaz gibi sifirdan yazmaz — S3 anahtarlari gibi degerler korunur."""
     import subprocess as _sp
@@ -283,13 +283,22 @@ def _env_patch(updates: dict) -> None:
     with _tf.NamedTemporaryFile("w", delete=False, suffix=".env") as fh:
         fh.write(body)
         tmp = fh.name
-    res = _sp.run([*STORAGE_APPLY_CMD.split(), tmp], capture_output=True, text=True, timeout=60)
-    if res.returncode != 0:
-        raise HTTPException(status_code=500, detail=res.stderr.strip() or "env uygulanamadi")
+    return tmp
+
+
+def _env_apply_bg(tmp: str) -> None:
+    """APPLY-BG-v1: yardimci program edgeway-api'yi yeniden baslatir, yani BU sureci
+    oldurur. Cevabi once dondurup burayi arka planda calistiriyoruz; env dosyasi
+    restart'tan ONCE yerine kondugu icin sinyalle olen surec basarisizlik degildir."""
+    import subprocess as _sp
+    try:
+        _sp.run([*STORAGE_APPLY_CMD.split(), tmp], capture_output=True, text=True, timeout=60)
+    except Exception:
+        pass
 
 
 @app.post("/api/storage/policy", dependencies=[Depends(auth)])
-async def api_storage_policy(req: Request) -> dict:
+async def api_storage_policy(req: Request, bg: BackgroundTasks) -> dict:
     """STORAGE-v1: saklama suresi ve yukleme modu.
     Iki retention anahtarini BIRLIKTE yazar; supurucu ile segmenter ayrilmaz."""
     import math as _math
@@ -311,8 +320,8 @@ async def api_storage_policy(req: Request) -> dict:
         updates["EDGEWAY_UPLOAD_MODE"] = mode
     if not updates:
         raise HTTPException(status_code=422, detail="degisiklik yok")
-    _env_patch(updates)
-    return {"ok": True, "applied": updates}
+    bg.add_task(_env_apply_bg, _env_patch(updates))
+    return {"ok": True, "applied": updates, "restarting": True}
 
 
 @app.post("/api/storage/purge", dependencies=[Depends(auth)])
@@ -485,7 +494,7 @@ def api_cameras_record_get() -> dict:
 
 
 @app.post("/api/cameras/record", dependencies=[Depends(auth)])
-async def api_cameras_record(req: Request) -> dict:
+async def api_cameras_record(req: Request, bg: BackgroundTasks) -> dict:
     """REC-v1: tek kameranin KAYDINI acar/kapatir. Canli yayin etkilenmez."""
     body = await req.json()
     cam = str(body.get("cam", "")).strip()
@@ -500,5 +509,6 @@ async def api_cameras_record(req: Request) -> dict:
         current.discard(cam)
     if not current:
         raise HTTPException(status_code=422, detail="en az bir kamera kayitta kalmali")
-    _env_patch({"EDGEWAY_RECORD_CAMERAS": ",".join(c for c in all_cams if c in current)})
+    bg.add_task(_env_apply_bg,
+                _env_patch({"EDGEWAY_RECORD_CAMERAS": ",".join(c for c in all_cams if c in current)}))
     return {"ok": True, "recording": [c for c in all_cams if c in current]}

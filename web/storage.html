@@ -377,6 +377,15 @@
     var t = ev.target;
     if (state.busy || !t.classList || !t.classList.contains('opt')) return;
     if (t.dataset.ret && t.dataset.ret !== (state.data || {}).retention) {
+      var order = RET.map(function (r) { return r[0]; });
+      var cur = order.indexOf((state.data || {}).retention);
+      var nxt = order.indexOf(t.dataset.ret);
+      if (cur > -1 && nxt < cur) {
+        var cl = (state.data || {}).cloud || {};
+        if (!confirm('Saklama ' + t.textContent + "'e iniyor.\n\n"
+            + 'Bu süreden eski kayıtlar kalıcı olarak silinecek. '
+            + 'Şu an bulutta ' + (cl.objects || 0) + ' dosya var.\n\nDevam edilsin mi?')) return;
+      }
       applyPolicy({ retention: t.dataset.ret }, 'saklama ' + t.textContent);
     } else if (t.dataset.mode && t.dataset.mode !== (state.data || {}).upload_mode) {
       applyPolicy({ upload_mode: t.dataset.mode }, 'yükleme ' + t.textContent);
