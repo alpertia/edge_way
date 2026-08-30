@@ -642,7 +642,7 @@ async function loadCams() {
       }
       syncCamUI(); render(true);
     };
-    if (ix === 0) selCams.add(n);
+    if (ix < 4) selCams.add(n);   /* CAMGRID-v2: acilista 4 kamera */
     const nameWrap = document.createElement('span');   /* CAMGRID-v2 */
     nameWrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;min-width:0';
     nameWrap.append(b, rec);
