@@ -493,7 +493,12 @@ def _ew_nav(path: str) -> str:
     return ('<div id="ewnav" style="display:flex;gap:7px;align-items:center;'
             'padding:10px 16px;background:#0b1220;border-bottom:1px solid #1e2a44;'
             'font:500 13px/1 system-ui,-apple-system,sans-serif">'
-            + "".join(items) + "</div>")
+            + "".join(items) + "</div>"
+            + "<script>(function(){var n=document.getElementById('ewnav');"
+              "if(!n)return;var l=document.querySelector('.logo');"
+              "var h=l&&(l.closest('header,nav')||l.parentElement);if(!h)return;"
+              "h.appendChild(n);n.style.marginLeft='auto';n.style.background='transparent';"
+              "n.style.border='0';n.style.padding='0';n.style.flexWrap='wrap';})();</script>")
 
 
 @app.middleware("http")
