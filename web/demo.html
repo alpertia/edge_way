@@ -81,6 +81,17 @@
   #btnLive { border-color:#7f1d1d !important; color:#f87171; font-weight:800; }
   #btnLive.on { background:#dc2626; border-color:#dc2626 !important; color:#fff; }
 </style>
+<style>
+/* CAMGRID-v2 — kamera listesi en altta, tam genislik. Rozet ismin yaninda, nabiz atar. */
+main { grid-template-columns: minmax(0,1fr) 296px !important; }
+main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
+@media (max-width:1200px){ main { grid-template-columns: minmax(0,1fr) !important; } }
+@media (max-width:800px){ main { grid-template-columns: 1fr !important; } }
+#cams { grid-template-columns: repeat(auto-fill,minmax(150px,1fr)) !important; }
+@keyframes ewrecdot { 0%,100%{opacity:1} 50%{opacity:.3} }
+.recdot.on { animation: ewrecdot 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce){ .recdot.on { animation:none } }
+</style>
 </head>
 <body>
 <div id="login" style="display:none;position:fixed;inset:0;z-index:99;background:#0b1526;align-items:center;justify-content:center;padding:20px">
@@ -97,6 +108,7 @@
 </div>
 <header>
   <a href="/" style="text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px"><span class="logo">edge<b>WAY</b></span><span class="pill">Pro2</span></a>
+  <span class="ewnav" style="display:inline-flex;gap:6px;margin-left:auto;font:500 13px/1 system-ui,-apple-system,sans-serif"><a href="/demo" style="text-decoration:none;padding:7px 12px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Canlı</a><a href="/storage" style="text-decoration:none;padding:7px 12px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Depolama</a><a href="/setup" style="text-decoration:none;padding:7px 12px;border-radius:6px;border:1px solid #2b3a5c;background:#16213a;color:#c7d3e8">Kurulum</a></span>
   <span class="stat" id="stat">bağlanıyor…</span><span id="note" style="margin-left:8px;font-size:12px;color:#f59e0b"></span>
   <button id="logout" title="çıkış" style="display:none;background:none;border:1px solid var(--line);color:var(--mut);border-radius:7px;padding:4px 10px;font-size:12px;cursor:pointer">Çıkış</button>
 </header>
@@ -624,7 +636,10 @@ async function loadCams() {
       syncCamUI(); render(true);
     };
     if (ix === 0) selCams.add(n);
-    row.append(c, b, rec); el.appendChild(row);   /* CAMGRID-v1 */
+    const nameWrap = document.createElement('span');   /* CAMGRID-v2 */
+    nameWrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;min-width:0';
+    nameWrap.append(b, rec);
+    row.append(c, nameWrap); el.appendChild(row);
   });
   syncCamUI();
   await render(false);

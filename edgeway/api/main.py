@@ -476,45 +476,6 @@ async def api_storage_purge(req: Request) -> dict:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-EW_NAV_LINKS = (("/demo", "Canlı"), ("/storage", "Depolama"), ("/setup", "Kurulum"), ("/", "Tanıtım"))
-
-
-def _ew_nav(path: str) -> str:
-    """NAV-v1: menuyu HER html sayfaya sunucuda enjekte eder. Tek kaynak burasi."""
-    items = []
-    for href, label in EW_NAV_LINKS:
-        on = path == href
-        items.append(
-            '<a href="%s" style="text-decoration:none;border-radius:6px;padding:8px 13px;'
-            'border:1px solid %s;background:%s;color:%s">%s</a>'
-            % (href, "#4a7dfc" if on else "#2b3a5c", "#2f5bd0" if on else "#16213a",
-               "#ffffff" if on else "#c7d3e8", label)
-        )
-    return ('<div id="ewnav" style="display:flex;gap:7px;align-items:center;'
-            'padding:10px 16px;background:#0b1220;border-bottom:1px solid #1e2a44;'
-            'font:500 13px/1 system-ui,-apple-system,sans-serif">'
-            + "".join(items) + "</div>"
-            + "<script>(function(){var n=document.getElementById('ewnav');"
-              "if(!n)return;var l=document.querySelector('.logo');"
-              "var h=l&&(l.closest('header,nav')||l.parentElement);if(!h)return;"
-              "h.appendChild(n);n.style.marginLeft='auto';n.style.background='transparent';"
-              "n.style.border='0';n.style.padding='0';n.style.flexWrap='wrap';})();</script>")
-
-
-@app.middleware("http")
-async def ew_nav_middleware(request: Request, call_next):
-    resp = await call_next(request)
-    if not resp.headers.get("content-type", "").startswith("text/html"):
-        return resp
-    chunks = [chunk async for chunk in resp.body_iterator]
-    text = b"".join(chunks).decode("utf-8", "replace")
-    import re as _re
-    hit = _re.search(r"<body[^>]*>", text, _re.I)
-    if hit and 'id="ewnav"' not in text:
-        text = text[:hit.end()] + _ew_nav(request.url.path) + text[hit.end():]
-    return HTMLResponse(text, status_code=resp.status_code)
-
-
 @app.get("/api/cameras/record", dependencies=[Depends(auth)])
 def api_cameras_record_get() -> dict:
     """REC-v1: hangi kameralar kaydediliyor. Bos liste = hepsi kaydediliyor."""
