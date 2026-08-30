@@ -83,10 +83,10 @@
 </style>
 <style>
 /* CAMGRID-v2 — kamera listesi en altta, tam genislik. Rozet ismin yaninda, nabiz atar. */
-main { grid-template-columns: minmax(0,1fr) 560px !important; }
+main { grid-template-columns: minmax(0,1fr) 430px !important; }
 @media (max-width:1400px){ main { grid-template-columns: minmax(0,1fr) !important; } }
 #jogWrap { align-items: flex-start !important; }
-#jogWrap #cal { min-width: 296px; }
+#jogWrap #cal { zoom: .5; min-width: 0; }
 .caldisabled { opacity:.45; pointer-events:none; }
 #btnLive { background:#2f5bd0 !important; border-color:#4a7dfc !important; color:#fff !important; }
 main > .panel:first-of-type { grid-column: 1 / -1 !important; order: 9; }
@@ -169,9 +169,9 @@ header .ewnav { flex-wrap: wrap; }
           <circle id="dialBtn" cx="64" cy="64" r="28" fill="#1c2230" stroke="#4a5468" stroke-width="2" style="cursor:pointer"/>
           <text id="dialIcon" x="64" y="73" text-anchor="middle" font-size="26" fill="#e8eef7" style="cursor:pointer;pointer-events:none">⏸</text>
         </svg>
-        <div style="min-width:0;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">
+        <div style="min-width:0">
           <div id="jogTime" style="font-size:30px;font-weight:800;font-variant-numeric:tabular-nums">--:--:--</div>
-          <div id="jogDate" style="font-size:11px;font-weight:600;color:var(--mut);letter-spacing:.02em">—</div>
+          <div id="jogDate" style="font-size:14px;font-weight:700;color:var(--mut)">—</div>
         </div>
       </div>
     </div>
