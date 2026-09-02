@@ -40,6 +40,7 @@ QUEUE_DIR = DATA_DIR / "upload_queue"
 SEGMENT_SECONDS = int(env("EDGEWAY_SEGMENT_SECONDS", "60"))
 RETENTION_DAYS = int(env("EDGEWAY_RETENTION_DAYS", "90"))
 RECORD_CAMERAS = [c.strip() for c in env("EDGEWAY_RECORD_CAMERAS", "").split(",") if c.strip()]
+MAX_RETENTION = env("EDGEWAY_MAX_RETENTION", "24h")  # PLAN-v1: ustu odemeye tabi
 DISK_MAX_PERCENT = int(env("EDGEWAY_DISK_MAX_PERCENT", "85"))
 
 # --- kameralar: "cam1=rtsp://...,cam2=rtsp://..." ---

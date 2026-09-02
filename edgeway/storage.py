@@ -418,6 +418,7 @@ def stats() -> dict:
         "site": config.SITE_ID,
         "device": config.DEVICE_ID,
         "retention": retention_key(),
+        "max_retention": getattr(config, "MAX_RETENTION", "24h"),
         "upload_mode": config.UPLOAD_MODE,
         "uploader_timer": uploader_timer_state(),
         "segment_seconds": config.SEGMENT_SECONDS,

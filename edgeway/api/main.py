@@ -310,6 +310,12 @@ async def api_storage_policy(req: Request, bg: BackgroundTasks) -> dict:
     if ret:
         if ret not in STORAGE_RETENTIONS:
             raise HTTPException(status_code=422, detail="gecersiz saklama suresi")
+        cap = getattr(config, "MAX_RETENTION", "24h")
+        if _storage.RETENTION_SECONDS[ret] > _storage.RETENTION_SECONDS.get(cap, 86400):
+            raise HTTPException(
+                status_code=402,
+                detail="Bu saklama suresi planiniza dahil degil (tavan: %s). Yukseltmek icin odeme gerekir." % cap,
+            )
         updates["EDGEWAY_RETENTION"] = ret
         updates["EDGEWAY_RETENTION_DAYS"] = str(
             max(1, _math.ceil(_storage.RETENTION_SECONDS[ret] / 86400))

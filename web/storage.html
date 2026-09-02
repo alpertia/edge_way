@@ -51,6 +51,8 @@
   .opt:hover { border-color: var(--blue); color: var(--ink); }
   .opt.on { background: var(--blue-2); border-color: var(--blue); color: #fff; font-weight: 500; }
   .opt.busy { opacity: .5; pointer-events: none; }
+  .opt.locked { opacity: .5; border-style: dashed; }
+  .opt.locked:hover { border-color: var(--amber); color: var(--ink-3); }
   .strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-radius: 7px; padding: 11px 14px; font-size: 12.5px; line-height: 1.5; }
   .strip.warn { background: #1a2338; border: 1px solid #3d3520; color: #c8b48c; }
   .strip.err { background: #241a1c; border: 1px solid #5c2a2e; color: #ffb3b6; }
@@ -269,9 +271,13 @@
 
   function paintOpts() {
     var d = state.data || {};
-    el('retOpts').innerHTML = RET.map(function (o) {
-      return '<span class="opt' + (o[0] === d.retention ? ' on' : '') + (state.busy ? ' busy' : '')
-        + '" data-ret="' + o[0] + '">' + o[1] + '</span>';
+    var order = RET.map(function (r) { return r[0]; });
+    var capIx = order.indexOf(d.max_retention || '24h');
+    el('retOpts').innerHTML = RET.map(function (o, i) {
+      var locked = capIx > -1 && i > capIx;
+      return '<span class="opt' + (o[0] === d.retention ? ' on' : '') + (locked ? ' locked' : '')
+        + '" data-ret="' + o[0] + '" data-locked="' + (locked ? '1' : '') + '"'
+        + (locked ? ' title="planiniza dahil degil"' : '') + '>' + o[1] + '</span>';
     }).join('');
     el('modeOpts').innerHTML = MODES.map(function (o) {
       return '<span class="opt' + (o[0] === d.upload_mode ? ' on' : '') + (state.busy ? ' busy' : '')
@@ -383,6 +389,14 @@
   document.addEventListener('click', function (ev) {
     var t = ev.target;
     if (state.busy || !t.classList || !t.classList.contains('opt')) return;
+    if (t.dataset.locked) {
+      var COST = {'3d':0.8,'7d':1.6,'14d':2.9,'1m':6,'3m':18,'6m':25,'1y':30,'2y':45};
+      var c = COST[t.dataset.ret];
+      banner('warn', '<span><b>' + t.textContent + '</b> planınıza dahil değil. '
+        + 'Kamera başına aylık yaklaşık ' + (c ? c.toFixed(2) + ' USD' : '—')
+        + ' bulut maliyeti getirir; açmak için plan yükseltmesi gerekiyor.</span>');
+      return;
+    }
     if (t.dataset.ret && t.dataset.ret !== (state.data || {}).retention) {
       var order = RET.map(function (r) { return r[0]; });
       var cur = order.indexOf((state.data || {}).retention);
