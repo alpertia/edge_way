@@ -78,4 +78,5 @@ check deploy/edgeway-apply-env "systemd-run" "restart kendi surecini oldurmez"
 check web/demo.html "FAVBLINK-v1" "kayitta sekme simgesi yanip soner"
 check edgeway/config.py "MAX_RETENTION" "saklama tavani plan ile sinirli"
 check edgeway/api/main.py "planiniza dahil degil" "tavan sunucuda zorunlu"
+check edgeway/storage.py "WINDOW-v1" "panel ayari degil fiili pencereyi gosterir"
 [ $FAIL -eq 0 ] && echo "TUM KAZANIMLAR YERINDE ($(grep -c '^check ' "$0") kontrol)" || exit 1

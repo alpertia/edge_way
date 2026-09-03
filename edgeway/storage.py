@@ -392,15 +392,29 @@ def stats() -> dict:
         pending = 0
         local_bytes = 0
         local_files = 0
+        oldest_m = None
+        newest_m = None
         for f in config.REC_DIR.rglob("*.mp4"):
             try:
-                local_bytes += f.stat().st_size
+                st = f.stat()
             except FileNotFoundError:
                 continue
+            local_bytes += st.st_size
             local_files += 1
+            if oldest_m is None or st.st_mtime < oldest_m:
+                oldest_m = st.st_mtime
+            if newest_m is None or st.st_mtime > newest_m:
+                newest_m = st.st_mtime
             if not f.with_suffix(f.suffix + ".up").exists():
                 pending += 1
         usage = shutil.disk_usage(config.DATA_DIR)
+
+        # WINDOW-v1: gercek geri sarma penceresi, en eski ve en yeni segment
+        # arasindaki fark. Ayarlanan saklama suresi bir NIYETTIR; disk kapasite
+        # temizligi devreye girdiginde fiili pencere ondan kisa olur ve panel
+        # bunu gizlememelidir.
+        window = int(newest_m - oldest_m) if (oldest_m and newest_m) else 0
+        want = retention_secs()
         local = {
             "segments": local_files,
             "bytes": local_bytes,
@@ -409,8 +423,9 @@ def stats() -> dict:
             "disk_total_bytes": usage.total,
             "disk_used_bytes": usage.used,
             "disk_used_pct": round(usage.used / usage.total * 100.0, 1),
-            "rewind_seconds": int(local_files * config.SEGMENT_SECONDS
-                                  / max(len(config.cameras()), 1)),
+            "window_seconds": window,
+            "window_limited_by": "disk" if window < want * 0.8 else "retention",
+            "rewind_seconds": window,
         }
 
     payload = {

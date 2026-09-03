@@ -311,7 +311,10 @@
     var retLabel = (RET.filter(function (r) { return r[0] === d.retention; })[0] || [null, d.retention])[1];
     el('vRetention').textContent = retLabel || '—';
     var modeLabel = (MODES.filter(function (m) { return m[0] === d.upload_mode; })[0] || [null, d.upload_mode])[1];
-    el('vMode').textContent = (modeLabel || '—') + ' · segment ' + (d.segment_seconds || '?') + ' sn';
+    var lw = (d.local || {}).window_seconds || 0;
+    var limited = (d.local || {}).window_limited_by === 'disk';
+    el('vMode').innerHTML = (modeLabel || '—') + ' · segment ' + (d.segment_seconds || '?') + ' sn'
+      + (limited ? '<br><span style="color:var(--amber)">disk sınırı: fiilen ' + fmtDur(lw) + '</span>' : '');
 
     var local = d.local || {};
     el('vRewind').textContent = fmtDur(local.rewind_seconds);
