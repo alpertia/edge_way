@@ -76,6 +76,8 @@ def health() -> dict:
         "temp_c": snap["temp_c"],
         "disk_used_pct": snap["disk_used_pct"],
         "cameras": list(config.cameras()),
+        "uptime_s": snap.get("uptime_s"),
+        "boot_id": snap.get("boot_id"),
     }
 
 
