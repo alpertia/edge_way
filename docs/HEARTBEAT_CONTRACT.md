@@ -166,3 +166,26 @@ control-plane'den okur.
     kurulmadikca thread olumu hicbir yere yazilmaz.
 (e) Ham metrigi tuketicide yeniden yorumlamak yalanci alarm uretir
     (rpimon-push / on-demand ready:false vakasi).
+
+## Teslimat ile ariza ayrimi (3 Eylul 2026)
+
+Olay: cihaz sagliktiydi, kayit kesintisizdi, portal 200 donuyordu — ama nabiz
+buluta ulasmadi (`push hatasi: TimeoutError`) ve bekci 20 saat DOWN gosterdi.
+Yerel `health_history.jsonl` ayni aralikta 1427 kayit, tamami OK, bes dakikadan
+buyuk tek bosluk yok.
+
+Kusur sozlesmedeydi: "cihaz oldu" ile "ag koptu" ayni sonuca cikiyordu.
+
+Uc madde eklendi:
+
+1. **`uptime_s`** — govdede. Nabiz gelmeyen bir aralikta uptime artmaya devam
+   etmisse cihaz ayaktaydi, sorun teslimattadir.
+2. **`boot_id`** — govdede. Degismediyse cihaz yeniden baslamamistir; degistiyse
+   gercekten baslamistir. Sayac kullanilmadi cunku `snapshot()` portal ve
+   `/api/health` tarafindan da cagriliyor, sayac orada da artardi.
+3. **Tamponlama** — gonderilemeyen nabizlar cihazda `heartbeat_spool.jsonl`de
+   birikir, baglanti donunce EN ESKIDEN baslayarak toplu gider. Bekci gecmise
+   donuk duzeltebilir.
+
+Bekci tarafinda (CooksMind) karsiligi: "nabiz gelmiyor" (BILINMIYOR) ile
+"nabiz geldi ve sagliksiz diyor" (DOWN) ayri durumlar olmalidir.

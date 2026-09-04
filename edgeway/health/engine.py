@@ -116,6 +116,29 @@ def _service_states() -> dict:
     return out
 
 
+def _uptime_s() -> int | None:
+    """UPTIME-v1: cihazin kesintisiz calisma suresi.
+
+    3 Eylul dersi: nabiz buluta ulasmadi, bekci 20 saat DOWN gosterdi, oysa
+    cihaz sagliktiydi. Teslimat arizasi ile cihaz arizasini ayirmak icin
+    bekcinin uptime'a bakmasi yeterli: nabiz gelmeyen aralikta uptime artmaya
+    devam etmisse cihaz ayaktaydi.
+    """
+    try:
+        with open("/proc/uptime") as fh:
+            return int(float(fh.read().split()[0]))
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _boot_id() -> str:
+    """Her acilista degisir. Degismediyse cihaz yeniden baslamamistir."""
+    try:
+        return open("/proc/sys/kernel/random/boot_id").read().strip()[:8]
+    except OSError:
+        return ""
+
+
 def snapshot() -> dict:
     """Anlik saglik tablosu. Durum: OK / WARN / CRIT, her biri gerekceli."""
     now = time.time()
@@ -167,6 +190,8 @@ def snapshot() -> dict:
         "site_id": config.SITE_ID,
         "device_id": config.DEVICE_ID,
         "ts": int(now),
+        "uptime_s": _uptime_s(),
+        "boot_id": _boot_id(),
         "status": state["status"],
         "reasons": reasons,
         "rec_age_s": rec_age,

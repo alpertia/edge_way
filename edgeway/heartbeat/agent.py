@@ -86,6 +86,69 @@ def push(payload: dict) -> bool:
         return False
 
 
+SPOOL = config.DATA_DIR / "heartbeat_spool.jsonl"
+SPOOL_MAX = int(config.env("EDGEWAY_HEARTBEAT_SPOOL_MAX", "2880"))
+SPOOL_BATCH = 60
+
+
+def _spool_append(payload: dict) -> None:
+    """SPOOL-v1: gonderilemeyen nabiz kaybolmaz, siraya yazilir.
+
+    3 Eylul dersi: cihaz saglikliydi ama nabiz buluta ulasamadi ve bekci
+    20 saat DOWN gosterdi. Teslimat arizasi ile cihaz arizasi ayni sonuca
+    cikmamali; birikmis nabizlar sonradan gidince gecmis duzeltilir.
+    """
+    try:
+        SPOOL.parent.mkdir(parents=True, exist_ok=True)
+        with SPOOL.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        lines = SPOOL.read_text(encoding="utf-8").splitlines()
+        if len(lines) > SPOOL_MAX:
+            SPOOL.write_text("\n".join(lines[-SPOOL_MAX:]) + "\n", encoding="utf-8")
+    except OSError as e:
+        print(f"[heartbeat] spool yazilamadi: {type(e).__name__}", file=sys.stderr)
+
+
+def _spool_drain() -> int:
+    """Birikmis nabizlari EN ESKIDEN baslayarak gonderir, turda en fazla
+    SPOOL_BATCH tane — dongu uzun surmesin."""
+    if not SPOOL.exists():
+        return 0
+    try:
+        lines = [l for l in SPOOL.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except OSError:
+        return 0
+    sent = 0
+    for line in lines[:SPOOL_BATCH]:
+        try:
+            item = json.loads(line)
+        except ValueError:
+            sent += 1
+            continue
+        if not push(item):
+            break
+        sent += 1
+    try:
+        rest = lines[sent:]
+        if rest:
+            SPOOL.write_text("\n".join(rest) + "\n", encoding="utf-8")
+        else:
+            SPOOL.unlink(missing_ok=True)
+    except OSError:
+        pass
+    if sent:
+        print(f"[heartbeat] {sent} birikmis nabiz gonderildi, {len(lines) - sent} kaldi",
+              file=sys.stderr)
+    return sent
+
+
+def deliver(payload: dict) -> None:
+    """Once tampon, sonra guncel nabiz. Basarisizsa guncel de tampona yazilir."""
+    _spool_drain()
+    if not push(payload):
+        _spool_append(payload)
+
+
 def thermal_action(temp: float | None) -> None:
     if temp is None:
         return
@@ -103,7 +166,7 @@ def main() -> None:
         try:
             m = metrics()
             thermal_action(m.get("temp_c"))
-            push(m)
+            deliver(m)
         except Exception as e:
             # §5: nabiz kesilebilir, DONGU KIRILMAZ. Cihaz kaydetmeye devam eder.
             print(f"[heartbeat] dongu hatasi: {type(e).__name__}", file=sys.stderr)
