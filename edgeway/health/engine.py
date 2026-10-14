@@ -139,6 +139,86 @@ def _boot_id() -> str:
         return ""
 
 
+DVR_HOST = os.environ.get("EDGEWAY_DVR_HOST", "192.168.0.4")
+DVR_PORT = int(os.environ.get("EDGEWAY_DVR_PORT", "554"))
+MEDIAMTX_API = os.environ.get("EDGEWAY_MEDIAMTX_API", "http://127.0.0.1:9997")
+
+_PREV_BYTES: dict = {}
+
+
+def _cam_adi(ad: str) -> bool:
+    return ad.startswith("cam") and ad[3:].isdigit()
+
+
+def _mediamtx_paths() -> list:
+    import urllib.request
+    url = MEDIAMTX_API + "/v3/paths/list?itemsPerPage=1000"
+    with urllib.request.urlopen(url, timeout=3) as r:
+        return json.load(r).get("items", [])
+
+
+def _dvr_sessions(host: str):
+    try:
+        r = subprocess.run(["ss", "-tn", "state", "established", "dst", host],
+                           capture_output=True, text=True, timeout=5)
+        return len([s for s in r.stdout.splitlines()[1:] if s.strip()])
+    except Exception:
+        return None
+
+
+def _dvr_reachable(host: str, port: int) -> bool:
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def _dvr_block() -> dict:
+    """DVR-v1: DVR'a bagli tek cihaz RPi oldugundan DVR telemetrisi buradan cikar.
+
+    paths_ready icin MediaMTX'in `ready` alanina guvenilmez (21 Agu dersi:
+    ready kaynak varligi degildir). Olcut bytesReceived'in iki ornek arasinda
+    artmasi. Ilk cagrida onceki ornek yoktur, o turda ready + bytesReceived>0
+    kullanilir.
+    """
+    simdi = time.time()
+    blok = {
+        "src": "rpi-mediamtx",
+        "paths_total": None,
+        "paths_ready": None,
+        "dvr_sessions": _dvr_sessions(DVR_HOST),
+        "down_cams": [],
+        "dvr_reachable": _dvr_reachable(DVR_HOST, DVR_PORT),
+    }
+    try:
+        items = _mediamtx_paths()
+    except Exception:
+        return blok
+
+    cams = [p for p in items if _cam_adi(p.get("name", ""))]
+    blok["paths_total"] = len(cams)
+
+    akan, duran = [], []
+    for p in cams:
+        ad = p["name"]
+        rb = p.get("bytesReceived")
+        onceki = _PREV_BYTES.get(ad)
+        _PREV_BYTES[ad] = (simdi, rb)
+        akiyor = False
+        if p.get("source"):
+            if onceki and rb is not None and onceki[1] is not None:
+                akiyor = rb > onceki[1]
+            else:
+                akiyor = bool(p.get("ready")) and bool(rb)
+        (akan if akiyor else duran).append(ad)
+
+    blok["paths_ready"] = len(akan)
+    blok["down_cams"] = sorted(duran, key=lambda s: int(s[3:]))
+    return blok
+
+
 def snapshot() -> dict:
     """Anlik saglik tablosu. Durum: OK / WARN / CRIT, her biri gerekceli."""
     now = time.time()
@@ -181,9 +261,23 @@ def snapshot() -> dict:
             bump("WARN", f"sicaklik {temp}C")
 
     services = _service_states()
+
+    kayit_acik = bool(config.cameras())
+    if not kayit_acik and "edgeway-recorder" in services:
+        services["edgeway-recorder"] = "disabled"
+
     for unit, st in services.items():
-        if st not in ("active", "unknown"):
-            bump("CRIT", f"{unit} {st}")
+        if st in ("active", "unknown", "disabled"):
+            continue
+        bump("CRIT", f"{unit} {st}")
+
+    dvr = _dvr_block()
+
+    roles = []
+    if (dvr.get("paths_total") or 0) > 0:
+        roles.append("dvr_source")
+    if kayit_acik:
+        roles.append("recorder")
 
     return {
         "hw_id": hw_id(),
@@ -200,6 +294,8 @@ def snapshot() -> dict:
         "temp_c": temp,
         "load1": round(os.getloadavg()[0], 2),
         "services": services,
+        "roles": roles,
+        "dvr": dvr,
     }
 
 

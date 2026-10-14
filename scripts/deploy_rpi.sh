@@ -12,4 +12,4 @@ else
   SSH_ARGS=()
 fi
 rsync -a --exclude .venv --exclude .git -e "$RSH" ./ "$HOST":~/edge_way/
-ssh "${SSH_ARGS[@]}" -t "$HOST" "sudo rsync -a --exclude .venv ~/edge_way/ /opt/edgeway/ && sudo chown -R edgeway:edgeway /opt/edgeway && sudo systemctl restart edgeway-api edgeway-recorder edgeway-heartbeat && sleep 8 && systemctl is-active edgeway-api edgeway-recorder edgeway-heartbeat"
+ssh "${SSH_ARGS[@]}" -t "$HOST" "sudo rsync -a --exclude .venv ~/edge_way/ /opt/edgeway/ && sudo chown -R edgeway:edgeway /opt/edgeway && UNITS=\"edgeway-api edgeway-heartbeat\" && if systemctl is-enabled edgeway-recorder >/dev/null 2>&1; then UNITS=\"\$UNITS edgeway-recorder\"; else echo \"edgeway-recorder devre disi, atlandi\"; fi && sudo systemctl restart \$UNITS && sleep 8 && systemctl is-active \$UNITS"
